@@ -871,6 +871,184 @@ body {
   /* Custom styles for story voice selector if needed */
 }
 
+/* Story Setup Styles */
+.story-setup {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.story-setup-header {
+  text-align: center;
+  margin-bottom: var(--spacing-2xl);
+}
+
+.setup-title {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.setup-subtitle {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+}
+
+.story-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.story-option-card {
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.story-option-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-light), var(--warning-color));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.story-option-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+}
+
+.story-option-card:hover::before {
+  opacity: 1;
+}
+
+.story-option-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.story-option-card.disabled:hover {
+  border-color: var(--border-color);
+  transform: none;
+  box-shadow: none;
+}
+
+.option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-md);
+  gap: var(--spacing-sm);
+}
+
+.option-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  flex: 1;
+  line-height: 1.3;
+}
+
+.option-genre {
+  background: var(--primary-color);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.option-description {
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+.option-details {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.option-setting,
+.option-character {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.1);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(5px);
+}
+
+.story-setup-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+/* Responsive adjustments for story setup */
+@media (max-width: 768px) {
+  .story-setup-header {
+    margin-bottom: var(--spacing-xl);
+  }
+  
+  .setup-title {
+    font-size: var(--font-size-2xl);
+  }
+  
+  .setup-subtitle {
+    font-size: var(--font-size-base);
+  }
+  
+  .story-options-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+  }
+  
+  .story-option-card {
+    padding: var(--spacing-lg);
+  }
+  
+  .option-title {
+    font-size: var(--font-size-lg);
+  }
+  
+  .option-description {
+    font-size: var(--font-size-sm);
+  }
+  
+  .story-setup-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
 /* Responsive adjustments for story game */
 @media (max-width: 768px) {
   .options-grid {
@@ -996,5 +1174,19 @@ body {
   
   .voice-option:hover {
     background: var(--bg-tertiary);
+  }
+  
+  .story-option-card {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .story-option-card:hover {
+    border-color: var(--primary-light);
+  }
+  
+  .option-setting,
+  .option-character {
+    background: rgba(255, 255, 255, 0.05);
   }
 }

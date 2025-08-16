@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { TextFormatter } from "./TextFormatter";
 import { StorySpeechButton } from "./StorySpeechButton";
+import { StorySetup } from "./StorySetup";
 import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
+import { getToken } from "src/util";
 
 interface GameState {
   storyText: string;
@@ -17,28 +19,28 @@ export const StoryGame: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [authToken, setAuthToken] = useState<string | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
-  
+  const [showStorySetup, setShowStorySetup] = useState(false);
+
   // Get speech state to control the gradient animation
   const { speaking, cancel: cancelSpeech } = useSpeechSynthesis();
 
-  const handleStartGame = async (internalAuthToken: string) => {
+  const handleStartGame = () => {
     // Cancel any ongoing speech when starting new game
     cancelSpeech();
-    
-    await generateNextStoryStep(
-      internalAuthToken,
-      "Start a new fantasy adventure story. You are a brave adventurer standing at the entrance to a mysterious forest. Describe the scene and provide 3 possible actions.",
-      []
-    );
+    setShowStorySetup(true);
+  };
+
+  const handleStartStoryWithPrompt = async (customPrompt: string) => {
+    setShowStorySetup(false);
+    await generateNextStoryStep(customPrompt, []);
     setGameStarted(true);
   };
 
   const handleChoiceSelection = async (choice: string) => {
     // Cancel any ongoing speech when user makes a choice
     cancelSpeech();
-    
+
     const newHistory = [
       ...gameState.history,
       gameState.storyText,
@@ -51,19 +53,15 @@ ${newHistory.join("\n\n")}
 
 Based on the choice "${choice}", continue the story and provide 3 new options for what to do next.`;
 
-    await generateNextStoryStep(authToken, contextPrompt, newHistory);
+    await generateNextStoryStep(contextPrompt, newHistory);
   };
 
-  const generateNextStoryStep = async (
-    token: string | null,
-    prompt: string,
-    history: string[]
-  ) => {
+  const generateNextStoryStep = async (prompt: string, history: string[]) => {
     try {
       setIsLoading(true);
       setError("");
 
-      const response = await fetchStoryContent(token, prompt);
+      const response = await fetchStoryContent(prompt);
 
       // Parse the response to extract story and options
       const lines = response.split("\n").filter((line) => line.trim());
@@ -115,18 +113,18 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
 
   // Extract token from URL hash fragment on component mount
   useEffect(() => {
-    const hashParams = new URLSearchParams(location.hash.substring(1));
-    const token = hashParams.get("token");
-    if (token) {
-      setAuthToken(token);
-    }
-
     // Check for pending action from auth flow
+    const token = getToken();
     const pendingAction = localStorage.getItem("pending_action");
     if (pendingAction && token) {
-      // Auto-start game if returning from auth
+      // Auto-start story setup if returning from auth
       setTimeout(() => {
-        handleStartGame(token);
+        if (
+          pendingAction === "generate_options" ||
+          pendingAction === "start_game"
+        ) {
+          setShowStorySetup(true);
+        }
         localStorage.removeItem("pending_action");
       }, 100);
     }
@@ -135,15 +133,25 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
   const resetGame = () => {
     // Cancel any ongoing speech when resetting game
     cancelSpeech();
-    
+
     setGameState({
       storyText: "",
       options: [],
       history: [],
     });
     setGameStarted(false);
+    setShowStorySetup(false);
     setError("");
   };
+
+  if (showStorySetup) {
+    return (
+      <StorySetup
+        onStartStory={handleStartStoryWithPrompt}
+        isLoading={isLoading}
+      />
+    );
+  }
 
   if (!gameStarted) {
     return (
@@ -163,7 +171,7 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
           className={`button button-primary ${
             isLoading ? "button-loading" : ""
           }`}
-          onClick={() => handleStartGame(authToken)}
+          onClick={handleStartGame}
           disabled={isLoading}
         >
           {isLoading ? "" : "Start Your Adventure"}
@@ -175,12 +183,12 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
   return (
     <>
       <div className="story-container">
-        <div className={`story-text ${speaking ? 'speaking' : ''}`}>
+        <div className={`story-text ${speaking ? "speaking" : ""}`}>
           <div className="story-content">
             <TextFormatter text={gameState.storyText} />
           </div>
           <div className="story-controls">
-            <StorySpeechButton 
+            <StorySpeechButton
               storyText={gameState.storyText}
               options={gameState.options}
               className="story-speech-button"
@@ -229,18 +237,16 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
   );
 };
 
-async function fetchStoryContent(
-  authToken: string | null,
-  prompt: string
-): Promise<string> {
+async function fetchStoryContent(prompt: string): Promise<string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Redirect: window.location.pathname + window.location.search,
   };
 
   // Add Authorization header if we have a token
-  if (authToken) {
-    headers["Authorization"] = authToken;
+  const token = getToken();
+  if (token) {
+    headers["Authorization"] = token;
   }
 
   const response = await fetch("https://api.peerwave.ai/api/chat", {
