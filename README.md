@@ -1,11 +1,9 @@
-## text-summarizer
+## story-quest
 
-A simple app that summarizes any text provided using LLMs via Peerwave's network.
-
-View it at [summarizer.trustleast.com](https://summarizer.trustleast.com).
+An interactive LLM-powered text adventure game that generates dynamic stories and choices using Peerwave's network.
 
 This app is built on a minimal React + TypeScript + Webpack setup.
-The majority of the logic is in [src/components/TextSummarizer.tsx](src/components/TextSummarizer.tsx).
+The majority of the logic is in [src/components/StoryGame.tsx](src/components/StoryGame.tsx).
 
 ## Deploy
 

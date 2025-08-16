@@ -342,6 +342,185 @@ body {
   outline-offset: 2px;
 }
 
+/* Story Game Specific Styles */
+.subtitle {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  margin: 0 0 var(--spacing-xl) 0;
+  text-align: center;
+  font-style: italic;
+}
+
+.story-intro {
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.intro-text {
+  font-size: var(--font-size-lg);
+  line-height: 1.7;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.story-container {
+  margin-bottom: var(--spacing-xl);
+}
+
+.story-text {
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  font-size: var(--font-size-lg);
+  line-height: 1.8;
+  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.story-text::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-light), var(--warning-color));
+}
+
+.options-container {
+  margin-bottom: var(--spacing-xl);
+}
+
+.options-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-lg) 0;
+  text-align: center;
+}
+
+.options-grid {
+  display: grid;
+  gap: var(--spacing-md);
+  grid-template-columns: 1fr;
+}
+
+.button-option {
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  padding: var(--spacing-lg);
+  text-align: left;
+  min-height: auto;
+  height: auto;
+  white-space: normal;
+  line-height: 1.5;
+  transition: all 0.3s ease;
+}
+
+.button-option:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  color: white;
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.button-option:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
+}
+
+.loading-container {
+  text-align: center;
+  padding: var(--spacing-xl);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-lg);
+}
+
+.loading-text {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+  position: relative;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.loading-text::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-left: var(--spacing-sm);
+  border: 2px solid var(--text-muted);
+  border-top: 2px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+}
+
+.game-controls {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Responsive adjustments for story game */
+@media (max-width: 768px) {
+  .options-grid {
+    gap: var(--spacing-sm);
+  }
+  
+  .button-option {
+    padding: var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+  
+  .story-text {
+    padding: var(--spacing-lg);
+    font-size: var(--font-size-base);
+  }
+  
+  .subtitle {
+    font-size: var(--font-size-base);
+  }
+}
+
+@media (max-width: 480px) {
+  .story-text {
+    padding: var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+  
+  .button-option {
+    padding: var(--spacing-sm);
+  }
+  
+  .game-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   :root {
@@ -363,7 +542,9 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
-  .summary-container {
+  .summary-container,
+  .story-text,
+  .story-intro {
     background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
   }
   

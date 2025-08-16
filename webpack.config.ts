@@ -47,7 +47,7 @@ const webpackConfig = (env) => ({
   ],
   devServer: {
     static: path.resolve(__dirname, "dist"),
-    port: 3004,
+    port: 3005,
     host: "localhost",
     open: true,
   },
