@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { TextFormatter } from "./TextFormatter";
+import { StorySpeechButton } from "./StorySpeechButton";
+import { useSpeechSynthesis } from "./hooks/useSpeechSynthesis";
 
 interface GameState {
   storyText: string;
@@ -16,6 +19,9 @@ export const StoryGame: React.FC = () => {
   const [error, setError] = useState("");
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
+  
+  // Get speech state to control the gradient animation
+  const { speaking } = useSpeechSynthesis();
 
   const handleStartGame = async (internalAuthToken: string) => {
     await generateNextStoryStep(
@@ -160,7 +166,20 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
   return (
     <>
       <div className="story-container">
-        <div className="story-text">{gameState.storyText}</div>
+        <div className={`story-text ${speaking ? 'speaking' : ''}`}>
+          <div className="story-content">
+            <TextFormatter text={gameState.storyText} />
+          </div>
+          <div className="story-controls">
+            <StorySpeechButton 
+              storyText={gameState.storyText}
+              options={gameState.options}
+              className="story-speech-button"
+              variant="primary"
+              size="medium"
+            />
+          </div>
+        </div>
 
         {gameState.options.length > 0 && !isLoading && (
           <div className="options-container">
@@ -172,7 +191,7 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
                   className="button button-option"
                   onClick={() => handleChoiceSelection(option)}
                 >
-                  {option}
+                  <TextFormatter text={option} />
                 </button>
               ))}
             </div>

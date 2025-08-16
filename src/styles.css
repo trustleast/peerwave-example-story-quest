@@ -392,7 +392,33 @@ body {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--primary-color), var(--primary-light), var(--warning-color));
+  background: linear-gradient(
+    90deg,
+    var(--primary-color) 0%,
+    var(--primary-light) 25%,
+    var(--warning-color) 50%,
+    var(--primary-light) 75%,
+    var(--primary-color) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  transition: background-position 0.3s ease;
+}
+
+.story-text.speaking::before {
+  animation: gradient-chase 3s ease-in-out infinite;
+}
+
+@keyframes gradient-chase {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .options-container {
@@ -484,6 +510,213 @@ body {
   border-top: 1px solid var(--border-color);
 }
 
+/* Text Formatter Styles */
+.text-formatter {
+  line-height: 1.6;
+}
+
+.formatted-bold {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.formatted-italic {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.formatted-list {
+  margin: var(--spacing-md) 0;
+  padding-left: var(--spacing-xl);
+  list-style-type: none;
+  position: relative;
+}
+
+.formatted-list-item {
+  margin: var(--spacing-sm) 0;
+  position: relative;
+  padding-left: var(--spacing-lg);
+}
+
+.formatted-list-item::before {
+  content: '•';
+  color: var(--primary-color);
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+/* Button formatting adjustments */
+.button-option .text-formatter {
+  text-align: left;
+  width: 100%;
+}
+
+.button-option .formatted-bold {
+  color: inherit;
+  font-weight: 600;
+}
+
+.button-option .formatted-italic {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.button-option .formatted-list {
+  margin: var(--spacing-sm) 0;
+  padding-left: var(--spacing-md);
+}
+
+.button-option .formatted-list-item {
+  margin: var(--spacing-xs) 0;
+  padding-left: var(--spacing-md);
+  font-size: var(--font-size-sm);
+}
+
+.button-option .formatted-list-item::before {
+  font-size: var(--font-size-base);
+}
+
+/* Speech Controls Styles */
+.speech-controls {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.speech-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  font-family: inherit;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.speech-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.speech-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.speech-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Speech button sizes */
+.speech-button-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  min-height: 32px;
+  min-width: 32px;
+}
+
+.speech-button-medium {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  min-height: 40px;
+  min-width: 40px;
+}
+
+.speech-button-large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-lg);
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Speech button variants */
+.speech-button-primary {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.speech-button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
+}
+
+.speech-button-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.speech-button-secondary:hover:not(:disabled) {
+  background: var(--bg-primary);
+  border-color: var(--primary-color);
+}
+
+.speech-button-icon {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  backdrop-filter: blur(10px);
+}
+
+.speech-button-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.speech-button-active {
+  background: var(--primary-color) !important;
+  color: white !important;
+  animation: pulse-speech 2s ease-in-out infinite;
+}
+
+.speech-button-stop {
+  background: var(--error-color);
+  color: white;
+  margin-left: var(--spacing-xs);
+}
+
+.speech-button-stop:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+@keyframes pulse-speech {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Story controls layout */
+.story-text {
+  position: relative;
+}
+
+.story-content {
+  margin-bottom: var(--spacing-md);
+}
+
+.story-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.story-speech-button {
+  /* Custom styles for story speech button if needed */
+}
+
+/* Option buttons back to original layout */
+.button-option {
+  width: 100%;
+}
+
 /* Responsive adjustments for story game */
 @media (max-width: 768px) {
   .options-grid {
@@ -502,6 +735,11 @@ body {
   
   .subtitle {
     font-size: var(--font-size-base);
+  }
+  
+  .story-controls {
+    justify-content: center;
+    padding-top: var(--spacing-md);
   }
 }
 
@@ -551,5 +789,26 @@ body {
   .error-container {
     background: linear-gradient(135deg, #451a1a, #3c1c1c);
     border-color: #7f1d1d;
+  }
+  
+  .formatted-bold {
+    color: var(--primary-light);
+  }
+  
+  .formatted-italic {
+    color: var(--text-secondary);
+  }
+  
+  .speech-button-icon {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .speech-button-icon:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .story-controls {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
   }
 }
