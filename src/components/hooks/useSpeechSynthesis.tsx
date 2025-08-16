@@ -17,6 +17,9 @@ interface UseSpeechSynthesisReturn {
   paused: boolean;
   supported: boolean;
   voices: SpeechSynthesisVoice[];
+  localeVoices: SpeechSynthesisVoice[];
+  selectedVoice: SpeechSynthesisVoice | null;
+  setSelectedVoice: (voice: SpeechSynthesisVoice | null) => void;
 }
 
 export const useSpeechSynthesis = (
@@ -29,6 +32,9 @@ export const useSpeechSynthesis = (
   const [currentText, setCurrentText] = useState<string>("");
   const [supported, setSupported] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [localeVoices, setLocaleVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] =
+    useState<SpeechSynthesisVoice | null>(voice);
 
   // Check if speech synthesis is supported
   useEffect(() => {
@@ -39,6 +45,43 @@ export const useSpeechSynthesis = (
       const loadVoices = () => {
         const availableVoices = window.speechSynthesis.getVoices();
         setVoices(availableVoices);
+
+        // Filter voices by user's locale
+        const userLocale = navigator.language || "en-US";
+        const userLanguage = userLocale.split("-")[0]; // Get language code (e.g., 'en' from 'en-US')
+
+        const filteredVoices = availableVoices.filter((innerVoice) => {
+          // Match exact locale first (e.g., 'en-US')
+          if (innerVoice.lang === userLocale) return true;
+
+          // Then match language code (e.g., 'en' matches 'en-GB', 'en-AU', etc.)
+          if (innerVoice.lang.startsWith(userLanguage + "-")) return true;
+
+          // Fallback to any voice that starts with the language code
+          return innerVoice.lang.startsWith(userLanguage);
+        });
+
+        setLocaleVoices(filteredVoices);
+
+        // Auto-select the first local voice if none is selected
+        if (!selectedVoice && filteredVoices.length > 0) {
+          // Try to find the default voice first
+          const defaultVoice =
+            filteredVoices.find((innerVoice) => innerVoice.default) ||
+            filteredVoices[0];
+          setSelectedVoice(defaultVoice);
+
+          // Try to load from localStorage
+          const savedVoiceName = localStorage.getItem("storyquest-voice");
+          if (savedVoiceName) {
+            const savedVoice = filteredVoices.find(
+              (innerVoice) => innerVoice.name === savedVoiceName
+            );
+            if (savedVoice) {
+              setSelectedVoice(savedVoice);
+            }
+          }
+        }
       };
 
       loadVoices();
@@ -48,6 +91,7 @@ export const useSpeechSynthesis = (
         window.speechSynthesis.onvoiceschanged = loadVoices;
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Clean up function to strip markdown formatting for speech
@@ -110,14 +154,29 @@ export const useSpeechSynthesis = (
       utterance.pitch = pitch;
       utterance.volume = volume;
 
-      if (voice) {
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      } else if (voice) {
         utterance.voice = voice;
       }
 
       // Event handlers
       utterance.onstart = () => {
+        console.log("Utterance start");
         setSpeaking(true);
         setPaused(false);
+      };
+
+      utterance.onpause = () => {
+        console.log("Utterance pause");
+        setSpeaking(false);
+        setPaused(true);
+      };
+
+      utterance.onresume = () => {
+        console.log("Utterance resume");
+        setPaused(false);
+        setSpeaking(true);
       };
 
       utterance.onend = () => {
@@ -135,7 +194,7 @@ export const useSpeechSynthesis = (
 
       window.speechSynthesis.speak(utterance);
     },
-    [supported, rate, pitch, volume, voice, cleanTextForSpeech]
+    [supported, rate, pitch, volume, voice, selectedVoice, cleanTextForSpeech]
   );
 
   const speakStoryAndOptions = useCallback(
@@ -150,41 +209,45 @@ export const useSpeechSynthesis = (
     if (!supported) return;
 
     window.speechSynthesis.cancel();
-    setSpeaking(false);
-    setPaused(false);
     setCurrentText("");
   }, [supported]);
 
   const pause = useCallback(() => {
-    if (!supported) return;
+    if (!supported) {
+      console.log("Speech synthesis not supported");
+      return;
+    }
 
     // Since pause/resume is unreliable, we'll stop instead
-    window.speechSynthesis.cancel();
-    setPaused(true);
-    setSpeaking(false);
+    window.speechSynthesis.pause();
   }, [supported]);
 
   const resume = useCallback(() => {
     if (!supported || !currentText) return;
 
     // Restart from the beginning since resume is unreliable
-    speak(currentText);
+    window.speechSynthesis.resume();
     setPaused(false);
-  }, [supported, currentText, speak]);
+  }, [supported, currentText]);
 
-  // Update speaking and paused state based on speechSynthesis state
-  useEffect(() => {
-    if (!supported) return;
+  const handleVoiceSelection = useCallback(
+    (innerVoice: SpeechSynthesisVoice | null) => {
+      // Cancel any current speech when voice changes
+      if (speaking || paused) {
+        window.speechSynthesis.cancel();
+        setCurrentText("");
+      }
 
-    const checkStatus = () => {
-      setSpeaking(window.speechSynthesis.speaking);
-      setPaused(window.speechSynthesis.pending);
-    };
-
-    const interval = setInterval(checkStatus, 100);
-
-    return () => clearInterval(interval);
-  }, [supported]);
+      setSelectedVoice(innerVoice);
+      // Save to localStorage for persistence
+      if (innerVoice) {
+        localStorage.setItem("storyquest-voice", innerVoice.name);
+      } else {
+        localStorage.removeItem("storyquest-voice");
+      }
+    },
+    [speaking, paused]
+  );
 
   return {
     speak,
@@ -196,5 +259,8 @@ export const useSpeechSynthesis = (
     paused,
     supported,
     voices,
+    localeVoices,
+    selectedVoice,
+    setSelectedVoice: handleVoiceSelection,
   };
 };

@@ -21,9 +21,12 @@ export const StoryGame: React.FC = () => {
   const [gameStarted, setGameStarted] = useState(false);
   
   // Get speech state to control the gradient animation
-  const { speaking } = useSpeechSynthesis();
+  const { speaking, cancel: cancelSpeech } = useSpeechSynthesis();
 
   const handleStartGame = async (internalAuthToken: string) => {
+    // Cancel any ongoing speech when starting new game
+    cancelSpeech();
+    
     await generateNextStoryStep(
       internalAuthToken,
       "Start a new fantasy adventure story. You are a brave adventurer standing at the entrance to a mysterious forest. Describe the scene and provide 3 possible actions.",
@@ -33,6 +36,9 @@ export const StoryGame: React.FC = () => {
   };
 
   const handleChoiceSelection = async (choice: string) => {
+    // Cancel any ongoing speech when user makes a choice
+    cancelSpeech();
+    
     const newHistory = [
       ...gameState.history,
       gameState.storyText,
@@ -127,6 +133,9 @@ Based on the choice "${choice}", continue the story and provide 3 new options fo
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetGame = () => {
+    // Cancel any ongoing speech when resetting game
+    cancelSpeech();
+    
     setGameState({
       storyText: "",
       options: [],
