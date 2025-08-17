@@ -854,6 +854,95 @@ body {
   opacity: 1;
 }
 
+/* Chapter Styles */
+.chapter {
+  margin-bottom: var(--spacing-xl);
+  border: 2px solid var(--primary-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.chapter.expanded {
+  box-shadow: var(--shadow-lg);
+}
+
+.chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chapter-header:hover {
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
+}
+
+.chapter-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+}
+
+.chapter-number {
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.chapter-name {
+  font-style: italic;
+}
+
+.chapter-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.chapter-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.chapter-summary {
+  padding: var(--spacing-lg);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.chapter-beats {
+  background: var(--bg-primary);
+}
+
+.chapter-beat {
+  margin: var(--spacing-md);
+  border-left: 3px solid var(--primary-light);
+}
+
+.chapter-beat .beat-header {
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+  padding: var(--spacing-md);
+}
+
 .beat-content.hidden {
   max-height: 0;
   opacity: 0;

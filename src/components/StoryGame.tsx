@@ -20,8 +20,17 @@ interface StoryBeat {
   timestamp: number;
 }
 
+interface Chapter {
+  id: string;
+  title: string;
+  summary: string;
+  storyBeats: StoryBeat[];
+  timestamp: number;
+}
+
 interface GameState {
   storyBeats: StoryBeat[];
+  chapters: Chapter[];
   currentOptions: string[];
   inventory: Item[];
   gameEnded: boolean;
@@ -32,6 +41,7 @@ interface GameState {
 export const StoryGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     storyBeats: [],
+    chapters: [],
     currentOptions: [],
     inventory: [],
     gameEnded: false,
@@ -49,6 +59,9 @@ export const StoryGame: React.FC = () => {
   const [loadedFromSave, setLoadedFromSave] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [expandedBeats, setExpandedBeats] = useState<Set<string>>(new Set());
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
+    new Set()
+  );
   const [selectedItemForCustomAction, setSelectedItemForCustomAction] =
     useState<Item | null>(null);
   const [itemCustomAction, setItemCustomAction] = useState("");
@@ -83,13 +96,30 @@ export const StoryGame: React.FC = () => {
       storyBeats: updatedBeats,
     }));
 
-    // Create context from story beats history
-    const storyHistory = gameState.storyBeats.map(
+    // Create context using chapter summaries + recent beats
+    let storyContext = "";
+
+    // Add chapter summaries for context
+    if (gameState.chapters.length > 0) {
+      const chapterSummaries = gameState.chapters.map(
+        (chapter) => `Chapter: ${chapter.title}\n${chapter.summary}`
+      );
+      storyContext += `Previous chapters:\n${chapterSummaries.join(
+        "\n\n"
+      )}\n\n`;
+    }
+
+    // Add recent story beats (current chapter)
+    const recentBeats = gameState.storyBeats.map(
       (beat) =>
         `${beat.storyText}${
           beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
         }`
     );
+
+    if (recentBeats.length > 0) {
+      storyContext += `Current chapter:\n${recentBeats.join("\n\n")}`;
+    }
 
     const inventoryContext =
       gameState.inventory.length > 0
@@ -100,7 +130,7 @@ export const StoryGame: React.FC = () => {
 
     const contextPrompt = `Continue this adventure story. Here's what happened previously:
     
-${storyHistory.join("\n\n")}${inventoryContext}
+${storyContext}${inventoryContext}
 
 Based on the choice "${choice}", continue the story. You may:
 - Naturally describe the player finding, receiving, or discovering items
@@ -145,24 +175,41 @@ Based on the choice "${choice}", continue the story. You may:
   const handleItemUse = async (item: Item) => {
     if (!item.usable) return;
 
-    // Create context from story beats history
-    const storyHistory = gameState.storyBeats.map(
+    // Create context using chapter summaries + recent beats
+    let storyContext = "";
+
+    // Add chapter summaries for context
+    if (gameState.chapters.length > 0) {
+      const chapterSummaries = gameState.chapters.map(
+        (chapter) => `Chapter: ${chapter.title}\n${chapter.summary}`
+      );
+      storyContext += `Previous chapters:\n${chapterSummaries.join(
+        "\n\n"
+      )}\n\n`;
+    }
+
+    // Add recent story beats (current chapter)
+    const recentBeats = gameState.storyBeats.map(
       (beat) =>
         `${beat.storyText}${
           beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
         }`
     );
 
+    if (recentBeats.length > 0) {
+      storyContext += `Current chapter:\n${recentBeats.join("\n\n")}`;
+    }
+
     const contextPrompt = `Continue this adventure story. The player has just used an item from their inventory.
 
 Previous story:
-${storyHistory.join("\n\n")}
+${storyContext}
 
 The player used this item: ${item.name}
 Item Type: ${item.type}
 Item Description: ${item.description}
 
-Continue the story based on how using this item affects the situation. Show the consequences of using this item and how it changes the player's circumstances. You may naturally describe finding new items as a result of using this one. Provide 3 new options for what to do next, or end the adventure if appropriate.`;
+Continue the story based on how using this item affects the situation. Show the consequences of using this item and how it changes the player's circumstances. You may naturally describe finding new items as a result of using this one.`;
 
     // Remove the item if it's consumable
     if (item.type === "consumable") {
@@ -199,13 +246,30 @@ Continue the story based on how using this item affects the situation. Show the 
     // Collapse all previous beats when a choice is selected
     setExpandedBeats(new Set());
 
-    // Create context from story beats history
-    const storyHistory = gameState.storyBeats.map(
+    // Create context using chapter summaries + recent beats
+    let storyContext = "";
+
+    // Add chapter summaries for context
+    if (gameState.chapters.length > 0) {
+      const chapterSummaries = gameState.chapters.map(
+        (chapter) => `Chapter: ${chapter.title}\n${chapter.summary}`
+      );
+      storyContext += `Previous chapters:\n${chapterSummaries.join(
+        "\n\n"
+      )}\n\n`;
+    }
+
+    // Add recent story beats (current chapter)
+    const recentBeats = gameState.storyBeats.map(
       (beat) =>
         `${beat.storyText}${
           beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
         }`
     );
+
+    if (recentBeats.length > 0) {
+      storyContext += `Current chapter:\n${recentBeats.join("\n\n")}`;
+    }
 
     const inventoryContext =
       gameState.inventory.length > 0
@@ -217,7 +281,7 @@ Continue the story based on how using this item affects the situation. Show the 
     const contextPrompt = `Continue this adventure story. The player has decided to use an item from their inventory in a custom way.
 
 Previous story:
-${storyHistory.join("\n\n")}${inventoryContext}
+${storyContext}${inventoryContext}
 
 The player used: ${item.name} - ${item.description}
 Custom action: "${itemCustomAction.trim()}"
@@ -252,7 +316,31 @@ Continue the story based on how the player uses this item with their described a
     });
   };
 
+  const toggleChapterExpansion = (chapterId: string) => {
+    setExpandedChapters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(chapterId)) {
+        newSet.delete(chapterId);
+      } else {
+        newSet.add(chapterId);
+      }
+      return newSet;
+    });
+  };
+
   const expandBeatAndNavigate = (beatId: string) => {
+    // Find which chapter contains this beat (if any)
+    const chapterContainingBeat = gameState.chapters.find((chapter) =>
+      chapter.storyBeats.some((beat) => beat.id === beatId)
+    );
+
+    // If beat is in a chapter, expand the chapter first
+    if (chapterContainingBeat) {
+      setExpandedChapters((prev) =>
+        new Set(prev).add(chapterContainingBeat.id)
+      );
+    }
+
     // Expand the specific beat
     setExpandedBeats((prev) => new Set(prev).add(beatId));
 
@@ -262,7 +350,7 @@ Continue the story based on how the player uses this item with their described a
       if (beatElement) {
         beatElement.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-    }, 100); // Small delay to ensure expansion animation starts
+    }, 200); // Longer delay to ensure chapter expansion completes
   };
 
   const generateNextStoryStep = async (prompt: string) => {
@@ -335,6 +423,45 @@ Continue the story based on how the player uses this item with their described a
       // Generate options and check for items if game hasn't ended
       if (!gameEnded) {
         try {
+          // Check if this story beat should end a chapter (only if we have enough beats)
+          let shouldCreateChapter = false;
+          if (gameState.storyBeats.length >= 3) {
+            // Minimum beats for a chapter
+            const recentHistory = gameState.storyBeats
+              .slice(-3) // Last 3 beats for context
+              .map((beat) => beat.storyText);
+            shouldCreateChapter = await checkForChapterEnd(
+              storyText,
+              recentHistory
+            );
+          }
+
+          if (shouldCreateChapter) {
+            // Create a new chapter from current story beats
+            const { title, summary } = await generateChapterSummary(
+              gameState.storyBeats
+            );
+
+            const newChapter: Chapter = {
+              id: `chapter-${Date.now()}-${Math.random()
+                .toString(36)
+                .substr(2, 9)}`,
+              title,
+              summary,
+              storyBeats: [...gameState.storyBeats],
+              timestamp: Date.now(),
+            };
+
+            // Move current beats to the chapter and clear story beats
+            setGameState((prev) => ({
+              ...prev,
+              chapters: [...prev.chapters, newChapter],
+              storyBeats: [newBeat], // Keep only the latest beat
+            }));
+
+            console.log(`Chapter created: "${title}"`);
+          }
+
           // Generate story options separately
           const generatedOptions = await generateStoryOptions(
             storyText,
@@ -468,6 +595,7 @@ Continue the story based on how the player uses this item with their described a
     clearSavedGame();
     setGameState({
       storyBeats: [],
+      chapters: [],
       currentOptions: [],
       inventory: [],
       gameEnded: false,
@@ -539,7 +667,117 @@ Continue the story based on how the player uses this item with their described a
         </div>
       )}
       <div className="story-container" ref={storyContainerRef}>
-        {/* Story Beat History */}
+        {/* Previous Chapters */}
+        {gameState.chapters.map((chapter, chapterIndex) => {
+          const isChapterExpanded = expandedChapters.has(chapter.id);
+
+          return (
+            <div
+              key={chapter.id}
+              className={`chapter ${
+                isChapterExpanded ? "expanded" : "collapsed"
+              }`}
+            >
+              {/* Chapter Header */}
+              <div
+                className="chapter-header"
+                onClick={() => toggleChapterExpansion(chapter.id)}
+              >
+                <div className="chapter-title">
+                  <span className="chapter-number">
+                    Chapter {chapterIndex + 1}:
+                  </span>
+                  <span className="chapter-name">{chapter.title}</span>
+                </div>
+                <button className="chapter-toggle">
+                  {isChapterExpanded ? "−" : "+"}
+                </button>
+              </div>
+
+              {/* Chapter Summary - Always Visible */}
+              <div className="chapter-summary">
+                <TextFormatter text={chapter.summary} />
+              </div>
+
+              {/* Chapter Beats - Collapsible */}
+              {isChapterExpanded && (
+                <div className="chapter-beats">
+                  {chapter.storyBeats.map((beat, beatIndex) => {
+                    const isBeatExpanded = expandedBeats.has(beat.id);
+
+                    return (
+                      <div
+                        key={beat.id}
+                        className={`story-beat chapter-beat ${
+                          isBeatExpanded ? "expanded" : "collapsed"
+                        }`}
+                        data-beat-id={beat.id}
+                      >
+                        {/* Beat Header */}
+                        <div
+                          className="beat-header"
+                          onClick={() => toggleBeatExpansion(beat.id)}
+                        >
+                          <div className="beat-title">
+                            <span className="beat-number">
+                              #{beatIndex + 1}
+                            </span>
+                            <span className="beat-preview">
+                              {beat.storyText.slice(0, 80)}
+                              {beat.storyText.length > 80 ? "..." : ""}
+                            </span>
+                          </div>
+                          <button className="beat-toggle">
+                            {isBeatExpanded ? "−" : "+"}
+                          </button>
+                        </div>
+
+                        {/* Beat Content - Collapsible */}
+                        {isBeatExpanded && (
+                          <div className="beat-content visible">
+                            <div className="story-text">
+                              <div className="story-content">
+                                <TextFormatter text={beat.storyText} />
+                              </div>
+                            </div>
+
+                            {/* Show items found in this beat */}
+                            {beat.itemsFound.length > 0 && (
+                              <div className="beat-items-found">
+                                <p className="items-found-text">
+                                  🎒 Items found:
+                                </p>
+                                <div className="found-items-list">
+                                  {beat.itemsFound.map((item) => (
+                                    <span key={item.id} className="found-item">
+                                      {item.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Show selected option for this beat */}
+                            {beat.selectedOption && (
+                              <div className="beat-choice">
+                                <TextFormatter
+                                  className="choice-text"
+                                  text={`➤ You chose: ${beat.selectedOption}`}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Current Chapter Story Beats */}
         {gameState.storyBeats.map((beat, index) => {
           const isExpanded = expandedBeats.has(beat.id);
           const isLastBeat = index === gameState.storyBeats.length - 1;
@@ -1048,6 +1286,148 @@ Should any items be added to the player's inventory based on this story segment?
   } catch (error) {
     console.error("Error checking for items:", error);
     return [];
+  }
+}
+
+async function checkForChapterEnd(
+  storyText: string,
+  recentHistory: string[]
+): Promise<boolean> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Redirect: window.location.pathname + window.location.search,
+  };
+
+  const token = getToken();
+  if (token) {
+    headers["Authorization"] = token;
+  }
+
+  try {
+    const response = await fetch("https://api.peerwave.ai/api/chat", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "cheapest",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert story analyst. Your job is to determine if a story segment represents a good place to end a chapter.
+
+A good chapter ending typically:
+- Resolves a major conflict or challenge
+- Completes a significant quest or task
+- Provides a sense of closure to a story arc
+- Reaches a natural pause point in the narrative
+- Concludes with a significant location change or time passage
+- Ends with a major revelation or plot development
+
+Answer with ONLY "YES" or "NO" - nothing else.`,
+          },
+          {
+            role: "user",
+            content: `Based on this recent story progression, does the latest story segment represent a good chapter ending?
+
+Recent story context:
+${recentHistory.join("\n\n")}
+
+Latest story segment:
+${storyText}
+
+Does this latest segment conclude a chapter? Answer YES or NO only.`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    const answer = data.message.content.trim().toUpperCase();
+    return answer === "YES";
+  } catch (error) {
+    console.error("Error checking for chapter end:", error);
+    return false;
+  }
+}
+
+async function generateChapterSummary(
+  chapterBeats: StoryBeat[]
+): Promise<{ title: string; summary: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Redirect: window.location.pathname + window.location.search,
+  };
+
+  const token = getToken();
+  if (token) {
+    headers["Authorization"] = token;
+  }
+
+  const chapterText = chapterBeats
+    .map((beat) => {
+      return `${beat.storyText}${
+        beat.selectedOption ? `\n[Choice: ${beat.selectedOption}]` : ""
+      }`;
+    })
+    .join("\n\n");
+
+  try {
+    const response = await fetch("https://api.peerwave.ai/api/chat", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "cheapest",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert story editor. Your job is to create a concise chapter summary and title.
+
+Requirements:
+- Create a compelling chapter title (2-8 words)
+- Write a summary that captures the key events and outcomes (2-4 sentences)
+- Focus on major plot points, character development, and important discoveries
+- Maintain narrative flow for future story continuation
+
+Format your response as:
+TITLE: [Chapter Title]
+SUMMARY: [Chapter Summary]`,
+          },
+          {
+            role: "user",
+            content: `Please create a title and summary for this chapter:
+
+${chapterText}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to generate chapter summary");
+    }
+
+    const data = await response.json();
+    const content = data.message.content;
+
+    // Parse the response
+    const titleMatch = content.match(/TITLE:\s*(.+)/i);
+    const summaryMatch = content.match(/SUMMARY:\s*(.+)/i);
+
+    const title = titleMatch ? titleMatch[1].trim() : `Chapter ${Date.now()}`;
+    const summary = summaryMatch
+      ? summaryMatch[1].trim()
+      : "A significant chapter in the adventure.";
+
+    return { title, summary };
+  } catch (error) {
+    console.error("Error generating chapter summary:", error);
+    return {
+      title: `Chapter ${Date.now()}`,
+      summary: "A significant chapter in the adventure.",
+    };
   }
 }
 
