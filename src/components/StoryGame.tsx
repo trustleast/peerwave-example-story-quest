@@ -310,25 +310,16 @@ Continue the story based on how using this item affects the situation. Show the 
     }
   }, [gameState, gameStarted, storyTitle, isStreaming, loadedFromSave]);
 
-  // Auto-scroll to keep latest content visible during streaming
+  // Scroll to bottom only on first load
   useEffect(() => {
-    if (isStreaming && storyContainerRef.current) {
-      // Scroll to the bottom of the story container
-      storyContainerRef.current.scrollTop =
-        storyContainerRef.current.scrollHeight;
-    }
-  }, [streamingText, isStreaming]);
-
-  // Scroll to latest content when new story content is added
-  useEffect(() => {
-    if (gameState.storyBeats.length > 0 && storyContainerRef.current && !isStreaming) {
-      // Smooth scroll to bottom when new content is added
+    if (loadedFromSave && gameState.storyBeats.length > 0 && storyContainerRef.current) {
+      // Smooth scroll to bottom when loading from save
       storyContainerRef.current.scrollTo({
         top: storyContainerRef.current.scrollHeight,
         behavior: "smooth",
       });
     }
-  }, [gameState.storyBeats.length, isStreaming]);
+  }, [loadedFromSave, gameState.storyBeats.length]);
 
   const resetGame = () => {
     clearSavedGame();
