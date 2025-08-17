@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getToken } from "src/util";
+import { generateSettings } from "src/LLMUtils";
 
 interface StorySetupProps {
   onStartStory: (setting: StorySetting) => void;
@@ -27,7 +27,7 @@ export const StorySetup: React.FC<StorySetupProps> = ({
     const getSettings = () => {
       setIsLoadingOptions(true);
 
-      fetchStoryOptions()
+      generateSettings()
         .then((optionsResponse) => {
           const parsedOptions = parseStoryOptions(optionsResponse);
           setStoryOptions(parsedOptions);
@@ -99,85 +99,6 @@ export const StorySetup: React.FC<StorySetupProps> = ({
     </div>
   );
 };
-
-async function fetchStoryOptions(): Promise<string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Redirect: window.location.pathname + window.location.search,
-  };
-
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = token;
-  }
-
-  const response = await fetch("https://api.peerwave.ai/api/chat", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: "cheapest",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a creative story generator. Generate up to 4 unique and engaging story concepts for an interactive text adventure game. Each concept should be creative and different from typical fantasy tropes. Respond with a JSON array of objects.",
-        },
-        {
-          role: "user",
-          content: `Generate up to 4 unique story concepts for an interactive text adventure. Return your response as a JSON array with this exact structure:
-
-[
-  {
-    "title": "Creative Title",
-    "description": "Engaging 1-2 sentence description",
-    "genre": "Genre type",
-    "setting": "Specific setting/location", 
-    "character": "Type of character the player embodies"
-  },
-  {
-    "title": "Creative Title",
-    "description": "Engaging 1-2 sentence description",
-    "genre": "Genre type",
-    "setting": "Specific setting/location",
-    "character": "Type of character the player embodies"
-  },
-  {
-    "title": "Creative Title", 
-    "description": "Engaging 1-2 sentence description",
-    "genre": "Genre type",
-    "setting": "Specific setting/location",
-    "character": "Type of character the player embodies"
-  },
-  {
-    "title": "Creative Title",
-    "description": "Engaging 1-2 sentence description", 
-    "genre": "Genre type",
-    "setting": "Specific setting/location",
-    "character": "Type of character the player embodies"
-  }
-]
-
-Make each concept unique, creative, and immediately engaging. Avoid clichéd scenarios. Return ONLY the JSON array, no additional text.`,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 402 || response.status === 401) {
-      const location = response.headers.get("Location");
-      if (location) {
-        localStorage.setItem("pending_action", "generate_options");
-        window.location.href = location;
-        throw new Error("Redirecting to Peerwave auth");
-      }
-    }
-    throw new Error(`Failed to generate story options: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.message.content;
-}
 
 function getCleanedJSON(jsonString: string): string {
   if (!jsonString.startsWith("[")) {
