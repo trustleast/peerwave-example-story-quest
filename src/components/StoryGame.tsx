@@ -309,7 +309,9 @@ Continue the story based on how using this item affects the situation. Show the 
         {gameState.storyText !== "" && (
           <div className="story-text">
             <div className="story-content">
-              <TextFormatter text={gameState.storyText} />
+              <TextFormatter
+                text={cleanOptionDescriptions(gameState.storyText)}
+              />
             </div>
           </div>
         )}
@@ -424,6 +426,42 @@ Continue the story based on how using this item affects the situation. Show the 
     </div>
   );
 };
+
+function cleanOptionDescriptions(storyText: string): string {
+  // Split into sentences
+  const sentences = storyText.split(/(?<=[.!?])\s+/);
+
+  // Remove the last sentence if it describes user options
+  if (sentences.length > 1) {
+    const lastSentence = sentences[sentences.length - 1].toLowerCase().trim();
+
+    // Patterns that indicate option descriptions
+    const optionPatterns = [
+      /^you have .* options?/,
+      /^your options? (?:are|include)/,
+      /^what (?:do you|will you) (?:do|choose)/,
+      /^choose (?:one|from)/,
+      /^select (?:one|an option)/,
+      /^pick (?:one|an option)/,
+      /^decide (?:what|how)/,
+      /^there are .* (?:choices?|options?)/,
+      /^here are your (?:choices?|options?)/,
+      /^you (?:can|may|could) (?:choose|decide|select)/,
+      /^the (?:choices?|options?) (?:are|include)/,
+      /^consider your (?:choices?|options?)/,
+    ];
+
+    const shouldRemove = optionPatterns.some((pattern) =>
+      pattern.test(lastSentence)
+    );
+
+    if (shouldRemove) {
+      return sentences.slice(0, -1).join(" ").trim();
+    }
+  }
+
+  return storyText;
+}
 
 interface AddItemTool {
   name: "add_item";
