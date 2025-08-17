@@ -36,6 +36,7 @@ export const StoryGame: React.FC = () => {
   const [gameStarted, setGameStarted] = useState(false);
   const [showStorySetup, setShowStorySetup] = useState(false);
   const [customAction, setCustomAction] = useState("");
+  const [storyTitle, setStoryTitle] = useState("");
 
   const handleStartGame = () => {
     setShowStorySetup(true);
@@ -43,8 +44,9 @@ export const StoryGame: React.FC = () => {
 
   const handleStartStoryWithPrompt = async (setting: StorySetting) => {
     setShowStorySetup(false);
-    await generateNextStoryStep(generateStoryPrompt(setting), []);
+    setStoryTitle(setting.title);
     setGameStarted(true);
+    await generateNextStoryStep(generateStoryPrompt(setting), []);
   };
 
   const handleChoiceSelection = async (choice: string) => {
@@ -256,20 +258,26 @@ Continue the story based on how using this item affects the situation. Show the 
     setShowStorySetup(false);
     setError("");
     setCustomAction("");
+    setStoryTitle("");
   };
 
   if (showStorySetup) {
     return (
-      <StorySetup
-        onStartStory={handleStartStoryWithPrompt}
-        isLoading={isLoading}
-      />
+      <div className="card">
+        <h1 className="title">Pick your setting</h1>
+        <StorySetup
+          onStartStory={handleStartStoryWithPrompt}
+          isLoading={isLoading}
+        />
+      </div>
     );
   }
 
   if (!gameStarted) {
     return (
-      <>
+      <div className="card">
+        <h1 className="title">Story Quest</h1>
+        <p className="subtitle">An AI-powered interactive text adventure</p>
         <div className="story-intro">
           <p className="intro-text">
             Welcome to Story Quest! Embark on an AI-generated interactive
@@ -290,18 +298,21 @@ Continue the story based on how using this item affects the situation. Show the 
         >
           {isLoading ? "" : "Start Your Adventure"}
         </button>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="card">
+      <h1 className="title">{storyTitle}</h1>
       <div className="story-container">
-        <div className="story-text">
-          <div className="story-content">
-            <TextFormatter text={gameState.storyText} />
+        {gameState.storyText !== "" && (
+          <div className="story-text">
+            <div className="story-content">
+              <TextFormatter text={gameState.storyText} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Inventory Display */}
         {gameState.inventory.length > 0 && (
@@ -410,7 +421,7 @@ Continue the story based on how using this item affects the situation. Show the 
           Start New Adventure
         </button>
       </div>
-    </>
+    </div>
   );
 };
 

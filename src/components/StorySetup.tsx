@@ -24,24 +24,28 @@ export const StorySetup: React.FC<StorySetupProps> = ({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setIsLoadingOptions(true);
-    setError("");
+    const getSettings = () => {
+      setIsLoadingOptions(true);
+      setError("");
 
-    fetchStoryOptions()
-      .then((optionsResponse) => {
-        const parsedOptions = parseStoryOptions(optionsResponse);
-        setStoryOptions(parsedOptions);
-      })
-      .catch((err) => {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to generate story options"
-        );
-      })
-      .finally(() => {
-        setIsLoadingOptions(false);
-      });
+      fetchStoryOptions()
+        .then((optionsResponse) => {
+          const parsedOptions = parseStoryOptions(optionsResponse);
+          setStoryOptions(parsedOptions);
+        })
+        .catch((err) => {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to generate story options"
+          );
+          getSettings();
+        })
+        .finally(() => {
+          setIsLoadingOptions(false);
+        });
+    };
+    getSettings();
   }, []);
 
   const handleOptionSelect = (option: StorySetting) => {
@@ -51,12 +55,6 @@ export const StorySetup: React.FC<StorySetupProps> = ({
   if (isLoadingOptions) {
     return (
       <div className="story-setup">
-        <div className="story-setup-header">
-          <h2 className="setup-title">Generating Story Options</h2>
-          <p className="setup-subtitle">
-            Creating unique adventures for you...
-          </p>
-        </div>
         <div className="loading-container">
           <p className="loading-text">Crafting story possibilities...</p>
         </div>
@@ -67,14 +65,11 @@ export const StorySetup: React.FC<StorySetupProps> = ({
   if (error) {
     return (
       <div className="story-setup">
-        <div className="story-setup-header">
-          <h2 className="setup-title">Story Quest</h2>
-          <p className="setup-subtitle">
-            An AI-powered interactive text adventure
-          </p>
-        </div>
         <div className="error-container">
           <p className="error-text">{error}</p>
+        </div>
+        <div className="loading-container">
+          <p className="loading-text">Trying again...</p>
         </div>
       </div>
     );
@@ -82,13 +77,6 @@ export const StorySetup: React.FC<StorySetupProps> = ({
 
   return (
     <div className="story-setup">
-      <div className="story-setup-header">
-        <h2 className="setup-title">Choose Your Adventure</h2>
-        <p className="setup-subtitle">
-          Select a story concept to begin your quest
-        </p>
-      </div>
-
       <div className="story-options-grid">
         {storyOptions.map((option) => (
           <button
