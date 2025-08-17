@@ -39,6 +39,7 @@ export const StoryGame: React.FC = () => {
   const [storyTitle, setStoryTitle] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [loadedFromSave, setLoadedFromSave] = useState(false);
 
   const handleStartGame = () => {
     setShowStorySetup(true);
@@ -134,6 +135,8 @@ Continue the story based on how using this item affects the situation. Show the 
         setStreamingText((prev) => prev + chunk);
       });
 
+      console.log("Raw LLM Response:", response);
+
       // Parse the response to extract story and endings
       const lines = response.split("\n").filter((line) => line.trim());
 
@@ -226,8 +229,22 @@ Continue the story based on how using this item affects the situation. Show the 
     }
   };
 
-  // Extract token from URL hash fragment on component mount
+  // Load saved game state and handle auth flow on component mount
   useEffect(() => {
+    // First, try to load saved game state
+    const savedGame = loadGameState();
+    if (savedGame) {
+      setGameState(savedGame.gameState);
+      setGameStarted(savedGame.gameStarted);
+      setStoryTitle(savedGame.storyTitle);
+      setLoadedFromSave(true);
+
+      // Hide the loaded indicator after a few seconds
+      setTimeout(() => {
+        setLoadedFromSave(false);
+      }, 3000);
+    }
+
     // Check for pending action from auth flow
     const token = getToken();
     const pendingAction = localStorage.getItem("pending_action");
@@ -245,7 +262,15 @@ Continue the story based on how using this item affects the situation. Show the 
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Save game state whenever it changes (but not during streaming or on initial load)
+  useEffect(() => {
+    if (gameStarted && !isStreaming && gameState.storyText && !loadedFromSave) {
+      saveGameState(gameState, gameStarted, storyTitle);
+    }
+  }, [gameState, gameStarted, storyTitle, isStreaming, loadedFromSave]);
+
   const resetGame = () => {
+    clearSavedGame();
     setGameState({
       storyText: "",
       options: [],
@@ -262,6 +287,7 @@ Continue the story based on how using this item affects the situation. Show the 
     setStoryTitle("");
     setStreamingText("");
     setIsStreaming(false);
+    setLoadedFromSave(false);
   };
 
   if (showStorySetup) {
@@ -308,6 +334,11 @@ Continue the story based on how using this item affects the situation. Show the 
   return (
     <div className="card">
       <h1 className="title">{storyTitle}</h1>
+      {loadedFromSave && (
+        <div className="save-indicator">
+          <p className="save-text">📖 Game loaded from save</p>
+        </div>
+      )}
       <div className="story-container">
         {(gameState.storyText !== "" || isStreaming) && (
           <div className="story-text">
@@ -429,13 +460,69 @@ Continue the story based on how using this item affects the situation. Show the 
   );
 };
 
+const STORY_SAVE_KEY = "storyquest_save";
+
+interface SavedGameState {
+  gameState: GameState;
+  gameStarted: boolean;
+  storyTitle: string;
+  timestamp: number;
+}
+
+function saveGameState(
+  gameState: GameState,
+  gameStarted: boolean,
+  storyTitle: string
+) {
+  try {
+    const saveData: SavedGameState = {
+      gameState,
+      gameStarted,
+      storyTitle,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(STORY_SAVE_KEY, JSON.stringify(saveData));
+  } catch (error) {
+    console.warn("Failed to save game state:", error);
+  }
+}
+
+function loadGameState(): SavedGameState | null {
+  try {
+    const saved = localStorage.getItem(STORY_SAVE_KEY);
+    if (!saved) return null;
+
+    const saveData = JSON.parse(saved) as SavedGameState;
+
+    // Check if save is recent (within 7 days)
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    if (saveData.timestamp < sevenDaysAgo) {
+      localStorage.removeItem(STORY_SAVE_KEY);
+      return null;
+    }
+
+    return saveData;
+  } catch (error) {
+    console.warn("Failed to load game state:", error);
+    localStorage.removeItem(STORY_SAVE_KEY);
+    return null;
+  }
+}
+
+function clearSavedGame() {
+  localStorage.removeItem(STORY_SAVE_KEY);
+}
+
 const ignoredSentenceEndings = ["options", "choices", "response"].map(
   (ending) => ending + ":"
 );
 function cleanOptionDescriptions(sentences: string[]): string[] {
   // Remove the last sentence if it describes user options
   if (sentences.length > 1) {
-    const lastSentence = sentences[sentences.length - 1].toLowerCase().trim();
+    let lastSentence = sentences[sentences.length - 1].toLowerCase().trim();
+    if (lastSentence.endsWith("**")) {
+      lastSentence = lastSentence.slice(0, -2);
+    }
 
     if (
       ignoredSentenceEndings.some((ending) => lastSentence.endsWith(ending))
