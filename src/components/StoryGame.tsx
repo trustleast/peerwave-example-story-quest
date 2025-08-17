@@ -441,7 +441,7 @@ Continue the story based on how using this item affects the situation. Show the 
 
   if (showStorySetup) {
     return (
-      <div className="card">
+      <div className="story-quest-container">
         <h1 className="title">Pick your setting</h1>
         <StorySetup
           onStartStory={handleStartStoryWithPrompt}
@@ -453,7 +453,7 @@ Continue the story based on how using this item affects the situation. Show the 
 
   if (!gameStarted) {
     return (
-      <div className="card">
+      <div className="story-quest-container">
         <h1 className="title">Story Quest</h1>
         <p className="subtitle">An AI-powered interactive text adventure</p>
         <div className="story-intro">
@@ -481,8 +481,13 @@ Continue the story based on how using this item affects the situation. Show the 
   }
 
   return (
-    <div className="card">
-      <h1 className="title">{storyTitle}</h1>
+    <div className="story-quest-container">
+      <div className="story-header">
+        <h1 className="title">{storyTitle}</h1>
+        <button className="button button-secondary" onClick={resetGame}>
+          Start New Adventure
+        </button>
+      </div>
       {loadedFromSave && (
         <div className="save-indicator">
           <p className="save-text">Game loaded from save</p>
@@ -616,12 +621,6 @@ Continue the story based on how using this item affects the situation. Show the 
           <p className="error-text">{error}</p>
         </div>
       )}
-
-      <div className="game-controls">
-        <button className="button button-secondary" onClick={resetGame}>
-          Start New Adventure
-        </button>
-      </div>
 
       {/* Inventory Modal */}
       {showInventory && (

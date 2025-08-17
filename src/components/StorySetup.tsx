@@ -86,10 +86,10 @@ export const StorySetup: React.FC<StorySetupProps> = ({
           >
             <div className="option-header">
               <h3 className="option-title">{option.title}</h3>
-              <span className="option-genre">{option.genre}</span>
             </div>
             <p className="option-description">{option.description}</p>
             <div className="option-details">
+              <span className="option-genre">🎭 {option.genre}</span>
               <span className="option-setting">📍 {option.setting}</span>
               <span className="option-character">👤 {option.character}</span>
             </div>
