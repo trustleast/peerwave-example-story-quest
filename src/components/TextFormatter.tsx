@@ -2,6 +2,7 @@ import React from "react";
 
 interface TextFormatterProps {
   text: string;
+  isStreaming?: boolean;
   className?: string;
 }
 
@@ -13,6 +14,7 @@ interface FormattedElement {
 
 export const TextFormatter: React.FC<TextFormatterProps> = ({
   text,
+  isStreaming = false,
   className = "",
 }) => {
   const parseText = (rawText: string): FormattedElement[] => {
@@ -201,6 +203,7 @@ export const TextFormatter: React.FC<TextFormatterProps> = ({
   return (
     <div className={`text-formatter ${className}`}>
       {elements.map((element, index) => renderElement(element, index))}
+      {isStreaming && <span className="streaming-cursor">▊</span>}
     </div>
   );
 };

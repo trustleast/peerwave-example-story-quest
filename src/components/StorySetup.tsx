@@ -26,7 +26,6 @@ export const StorySetup: React.FC<StorySetupProps> = ({
   useEffect(() => {
     const getSettings = () => {
       setIsLoadingOptions(true);
-      setError("");
 
       fetchStoryOptions()
         .then((optionsResponse) => {
@@ -52,16 +51,6 @@ export const StorySetup: React.FC<StorySetupProps> = ({
     onStartStory(option);
   };
 
-  if (isLoadingOptions) {
-    return (
-      <div className="story-setup">
-        <div className="loading-container">
-          <p className="loading-text">Crafting story possibilities...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="story-setup">
@@ -70,6 +59,16 @@ export const StorySetup: React.FC<StorySetupProps> = ({
         </div>
         <div className="loading-container">
           <p className="loading-text">Trying again...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoadingOptions) {
+    return (
+      <div className="story-setup">
+        <div className="loading-container">
+          <p className="loading-text">Crafting story possibilities...</p>
         </div>
       </div>
     );

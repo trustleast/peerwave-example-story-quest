@@ -37,6 +37,8 @@ export const StoryGame: React.FC = () => {
   const [showStorySetup, setShowStorySetup] = useState(false);
   const [customAction, setCustomAction] = useState("");
   const [storyTitle, setStoryTitle] = useState("");
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const handleStartGame = () => {
     setShowStorySetup(true);
@@ -124,9 +126,13 @@ Continue the story based on how using this item affects the situation. Show the 
   const generateNextStoryStep = async (prompt: string, history: string[]) => {
     try {
       setIsLoading(true);
+      setIsStreaming(true);
+      setStreamingText("");
       setError("");
 
-      const response = await fetchStoryContent(prompt);
+      const response = await fetchStoryContent(prompt, (chunk: string) => {
+        setStreamingText((prev) => prev + chunk);
+      });
 
       // Parse the response to extract story and endings
       const lines = response.split("\n").filter((line) => line.trim());
@@ -165,10 +171,12 @@ Continue the story based on how using this item affects the situation. Show the 
         // For ended games, use everything before ending marker as story
         const endingIndex = response.indexOf(endingMatch![0]);
         storyText = response.slice(0, endingIndex).trim();
-        options = []; // No options when game is over
       } else if (optionsStartIndex > -1) {
         // Story is everything before options
-        storyText = lines.slice(0, optionsStartIndex).join("\n").trim();
+        const filteredLines = cleanOptionDescriptions(
+          lines.slice(0, optionsStartIndex)
+        );
+        storyText = filteredLines.join("\n").trim();
 
         // Options are the numbered/bulleted items
         options = lines
@@ -179,31 +187,22 @@ Continue the story based on how using this item affects the situation. Show the 
       } else {
         // If no clear options found, use the whole response as story
         storyText = response.trim();
-        // Provide generic options only if game hasn't ended
-        options = gameEnded
-          ? []
-          : [
-              "Continue exploring",
-              "Look around carefully",
-              "Think about your next move",
-            ];
       }
-
-      // Update game state with story content first
-      const updatedGameState = {
-        storyText,
-        options,
-        history,
-        inventory: gameState.inventory, // Keep existing inventory for now
-        gameEnded,
-        endingType,
-        endingMessage,
-      };
 
       setGameState((prev) => ({
         ...prev,
-        ...updatedGameState,
+        ...{
+          storyText,
+          options,
+          history,
+          gameEnded,
+          endingType,
+          endingMessage,
+        },
       }));
+
+      setIsStreaming(false);
+      setStreamingText("");
 
       // Make a second call to determine if items should be added
       if (!gameEnded) {
@@ -222,6 +221,8 @@ Continue the story based on how using this item affects the situation. Show the 
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
+      setStreamingText("");
     }
   };
 
@@ -259,6 +260,8 @@ Continue the story based on how using this item affects the situation. Show the 
     setError("");
     setCustomAction("");
     setStoryTitle("");
+    setStreamingText("");
+    setIsStreaming(false);
   };
 
   if (showStorySetup) {
@@ -306,11 +309,12 @@ Continue the story based on how using this item affects the situation. Show the 
     <div className="card">
       <h1 className="title">{storyTitle}</h1>
       <div className="story-container">
-        {gameState.storyText !== "" && (
+        {(gameState.storyText !== "" || isStreaming) && (
           <div className="story-text">
             <div className="story-content">
               <TextFormatter
-                text={cleanOptionDescriptions(gameState.storyText)}
+                isStreaming={isStreaming}
+                text={isStreaming ? streamingText : gameState.storyText}
               />
             </div>
           </div>
@@ -319,7 +323,7 @@ Continue the story based on how using this item affects the situation. Show the 
         {/* Inventory Display */}
         {gameState.inventory.length > 0 && (
           <div className="inventory-container">
-            <h3 className="inventory-title">🎒 Inventory</h3>
+            <h3 className="inventory-title">Inventory</h3>
             <div className="inventory-grid">
               {gameState.inventory.map((item) => (
                 <div key={item.id} className="inventory-item">
@@ -332,7 +336,7 @@ Continue the story based on how using this item affects the situation. Show the 
                     <button
                       className="button button-item-use"
                       onClick={() => handleItemUse(item)}
-                      disabled={isLoading}
+                      disabled={isLoading || isStreaming}
                     >
                       Use
                     </button>
@@ -360,52 +364,50 @@ Continue the story based on how using this item affects the situation. Show the 
         )}
 
         {/* Action Options */}
-        {gameState.options.length > 0 && !isLoading && !gameState.gameEnded && (
-          <div className="options-container">
-            <h3 className="options-title">What do you do?</h3>
-            <div className="options-grid">
-              {gameState.options.map((option, index) => (
-                <button
-                  key={index}
-                  className="button button-option"
-                  onClick={() => handleChoiceSelection(option)}
-                  disabled={isLoading}
-                >
-                  <TextFormatter text={option} />
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Action Input */}
-            <div className="custom-action-container">
-              <h4 className="custom-action-title">Or try your own action:</h4>
-              <div className="custom-action-input-group">
-                <input
-                  type="text"
-                  className="custom-action-input"
-                  placeholder="Describe what you want to do..."
-                  value={customAction}
-                  onChange={(e) => setCustomAction(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter" && !isLoading) {
-                      handleCustomAction();
-                    }
-                  }}
-                  disabled={isLoading}
-                />
-                <button
-                  className="button button-custom-action"
-                  onClick={handleCustomAction}
-                  disabled={isLoading || !customAction.trim()}
-                >
-                  Try It
-                </button>
+        {gameState.options.length > 0 &&
+          !isLoading &&
+          !isStreaming &&
+          !gameState.gameEnded && (
+            <div className="options-container">
+              <h3 className="options-title">What do you do?</h3>
+              <div className="options-grid">
+                {gameState.options.map((option, index) => (
+                  <button
+                    key={index}
+                    className="button button-option"
+                    onClick={() => handleChoiceSelection(option)}
+                    disabled={isLoading || isStreaming}
+                  >
+                    <TextFormatter text={option} />
+                  </button>
+                ))}
+                <div className="custom-action-input-group">
+                  <input
+                    type="text"
+                    className="custom-action-input"
+                    placeholder="Describe what you want to do..."
+                    value={customAction}
+                    onChange={(e) => setCustomAction(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && !isLoading && !isStreaming) {
+                        handleCustomAction();
+                      }
+                    }}
+                    disabled={isLoading || isStreaming}
+                  />
+                  <button
+                    className="button button-custom-action"
+                    onClick={handleCustomAction}
+                    disabled={isLoading || isStreaming || !customAction.trim()}
+                  >
+                    Try It
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {isLoading && (
+        {isLoading && !isStreaming && (
           <div className="loading-container">
             <p className="loading-text">The story continues...</p>
           </div>
@@ -427,40 +429,22 @@ Continue the story based on how using this item affects the situation. Show the 
   );
 };
 
-function cleanOptionDescriptions(storyText: string): string {
-  // Split into sentences
-  const sentences = storyText.split(/(?<=[.!?])\s+/);
-
+const ignoredSentenceEndings = ["options", "choices", "response"].map(
+  (ending) => ending + ":"
+);
+function cleanOptionDescriptions(sentences: string[]): string[] {
   // Remove the last sentence if it describes user options
   if (sentences.length > 1) {
     const lastSentence = sentences[sentences.length - 1].toLowerCase().trim();
 
-    // Patterns that indicate option descriptions
-    const optionPatterns = [
-      /^you have .* options?/,
-      /^your options? (?:are|include)/,
-      /^what (?:do you|will you) (?:do|choose)/,
-      /^choose (?:one|from)/,
-      /^select (?:one|an option)/,
-      /^pick (?:one|an option)/,
-      /^decide (?:what|how)/,
-      /^there are .* (?:choices?|options?)/,
-      /^here are your (?:choices?|options?)/,
-      /^you (?:can|may|could) (?:choose|decide|select)/,
-      /^the (?:choices?|options?) (?:are|include)/,
-      /^consider your (?:choices?|options?)/,
-    ];
-
-    const shouldRemove = optionPatterns.some((pattern) =>
-      pattern.test(lastSentence)
-    );
-
-    if (shouldRemove) {
-      return sentences.slice(0, -1).join(" ").trim();
+    if (
+      ignoredSentenceEndings.some((ending) => lastSentence.endsWith(ending))
+    ) {
+      return sentences.slice(0, -1);
     }
   }
 
-  return storyText;
+  return sentences;
 }
 
 interface AddItemTool {
@@ -605,7 +589,10 @@ Should any items be added to the player's inventory based on this story segment?
   }
 }
 
-async function fetchStoryContent(prompt: string): Promise<string> {
+async function fetchStoryContent(
+  prompt: string,
+  onChunk?: (chunk: string) => void
+): Promise<string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Redirect: window.location.pathname + window.location.search,
@@ -617,7 +604,12 @@ async function fetchStoryContent(prompt: string): Promise<string> {
     headers["Authorization"] = token;
   }
 
-  const response = await fetch("https://api.peerwave.ai/api/chat", {
+  let endpoint = "https://api.peerwave.ai/api/chat";
+  if (onChunk !== undefined) {
+    endpoint = "https://api.peerwave.ai/api/chat/stream";
+  }
+
+  const response = await fetch(endpoint, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -663,6 +655,46 @@ Focus on creating compelling narrative moments where the player might discover u
 
   localStorage.removeItem("pending_action");
 
-  const data = await response.json();
-  return data.message.content;
+  // Handle streaming response
+  if (onChunk && response.body) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = "";
+
+    try {
+      let loopDone = false;
+      while (!loopDone) {
+        const { done, value } = await reader.read();
+        if (done) {
+          loopDone = true;
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          const cleaned = line.trim();
+          if (cleaned === "") {
+            continue;
+          }
+          const parsedLine = JSON.parse(cleaned);
+          const content = parsedLine?.message?.content;
+          if (!content) {
+            continue;
+          }
+          onChunk(content);
+          fullContent += content;
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return fullContent;
+  } else {
+    // Non-streaming response
+    const data = await response.json();
+    return data.message.content;
+  }
 }

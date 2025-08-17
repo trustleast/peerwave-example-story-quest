@@ -1268,3 +1268,16 @@ body {
     background: var(--bg-tertiary);
   }
 }
+
+/* Streaming Cursor Styles */
+.streaming-cursor {
+  color: var(--primary-color);
+  font-weight: bold;
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
