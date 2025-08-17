@@ -145,11 +145,11 @@ async function fetchStoryOptions(): Promise<string> {
         {
           role: "system",
           content:
-            "You are a creative story generator. Generate exactly 4 unique and engaging story concepts for an interactive text adventure game. Each concept should be creative and different from typical fantasy tropes. Respond with a JSON array of objects.",
+            "You are a creative story generator. Generate up to 4 unique and engaging story concepts for an interactive text adventure game. Each concept should be creative and different from typical fantasy tropes. Respond with a JSON array of objects.",
         },
         {
           role: "user",
-          content: `Generate 4 unique story concepts for an interactive text adventure. Return your response as a JSON array with this exact structure:
+          content: `Generate up to 4 unique story concepts for an interactive text adventure. Return your response as a JSON array with this exact structure:
 
 [
   {
@@ -204,28 +204,38 @@ Make each concept unique, creative, and immediately engaging. Avoid clichéd sce
   return data.message.content;
 }
 
+function getCleanedJSON(jsonString: string): string {
+  if (!jsonString.startsWith("[")) {
+    jsonString = "[" + jsonString;
+  }
+  if (!jsonString.endsWith("]")) {
+    jsonString += "]";
+  }
+  return jsonString;
+}
+
 function parseStoryOptions(response: string): StoryOption[] {
   console.log("Raw LLM response:", response);
 
   // Strategy 1: Try to parse as JSON first
-  const jsonOptions = tryParseAsJSON(response);
+  const jsonOptions = tryParseAsJSON(getCleanedJSON(response));
   if (jsonOptions.length > 0) {
     console.log("Successfully parsed JSON format");
-    return jsonOptions.slice(0, 4);
+    return jsonOptions;
   }
 
   // Strategy 2: Flexible text parsing with multiple patterns
   const textOptions = tryParseAsText(response);
   if (textOptions.length > 0) {
     console.log("Successfully parsed text format");
-    return textOptions.slice(0, 4);
+    return textOptions;
   }
 
   // Strategy 3: Regex-based parsing for loose format
   const regexOptions = tryParseWithRegex(response);
   if (regexOptions.length > 0) {
     console.log("Successfully parsed with regex");
-    return regexOptions.slice(0, 4);
+    return regexOptions;
   }
 
   // Strategy 4: Fallback options
