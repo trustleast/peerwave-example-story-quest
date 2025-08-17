@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import { getToken } from "src/util";
 
 interface StorySetupProps {
-  onStartStory: (prompt: string) => void;
+  onStartStory: (setting: StorySetting) => void;
   isLoading: boolean;
 }
 
-interface StoryOption {
+export interface StorySetting {
   id: string;
   title: string;
   description: string;
@@ -19,9 +19,8 @@ export const StorySetup: React.FC<StorySetupProps> = ({
   onStartStory,
   isLoading,
 }) => {
-  const [storyOptions, setStoryOptions] = useState<StoryOption[]>([]);
+  const [storyOptions, setStoryOptions] = useState<StorySetting[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
-  const [, setSelectedOption] = useState<StoryOption | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -45,19 +44,8 @@ export const StorySetup: React.FC<StorySetupProps> = ({
       });
   }, []);
 
-  const handleOptionSelect = (option: StoryOption) => {
-    setSelectedOption(option);
-
-    const storyPrompt = `Create an engaging ${option.genre.toLowerCase()} story based on this concept:
-
-Title: ${option.title}
-Description: ${option.description}
-Setting: ${option.setting}
-Character Type: ${option.character}
-
-Start the adventure by describing the opening scene in detail. Set up the character's situation and the immediate challenge they face. End with exactly 3 numbered action options for the player to choose from. Make it immersive and compelling.`;
-
-    onStartStory(storyPrompt);
+  const handleOptionSelect = (option: StorySetting) => {
+    onStartStory(option);
   };
 
   if (isLoadingOptions) {
@@ -217,7 +205,7 @@ function getCleanedJSON(jsonString: string): string {
   return jsonString;
 }
 
-function parseStoryOptions(response: string): StoryOption[] {
+function parseStoryOptions(response: string): StorySetting[] {
   console.log("Raw LLM response:", response);
 
   // Strategy 1: Try to parse as JSON first
@@ -243,10 +231,10 @@ function parseStoryOptions(response: string): StoryOption[] {
 
   // Strategy 4: Fallback options
   console.warn("All parsing strategies failed, using fallback options");
-  return getFallbackOptions();
+  throw new Error("Failed to parse story options");
 }
 
-function tryParseAsJSON(response: string): StoryOption[] {
+function tryParseAsJSON(response: string): StorySetting[] {
   try {
     // Look for JSON array or object in the response
     const jsonMatch = response.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
@@ -270,10 +258,10 @@ function tryParseAsJSON(response: string): StoryOption[] {
   return [];
 }
 
-function tryParseAsText(response: string): StoryOption[] {
+function tryParseAsText(response: string): StorySetting[] {
   const lines = response.split("\n").filter((line) => line.trim());
-  const options: StoryOption[] = [];
-  let currentOption: Partial<StoryOption> = {};
+  const options: StorySetting[] = [];
+  let currentOption: Partial<StorySetting> = {};
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -323,8 +311,8 @@ function tryParseAsText(response: string): StoryOption[] {
   return options;
 }
 
-function tryParseWithRegex(response: string): StoryOption[] {
-  const options: StoryOption[] = [];
+function tryParseWithRegex(response: string): StorySetting[] {
+  const options: StorySetting[] = [];
 
   // Try to find sections that look like story options
   const sectionRegex = /(.{10,100}[\.\!\?])\s*[\n\r]*(.{20,200})/g;
@@ -352,9 +340,9 @@ function tryParseWithRegex(response: string): StoryOption[] {
 }
 
 function createStoryOption(
-  partial: Partial<StoryOption>,
+  partial: Partial<StorySetting>,
   index: number
-): StoryOption {
+): StorySetting {
   return {
     id: `option-${index}`,
     title: partial.title || `Adventure ${index + 1}`,
@@ -365,43 +353,13 @@ function createStoryOption(
   };
 }
 
-function getFallbackOptions(): StoryOption[] {
-  return [
-    {
-      id: "fallback-1",
-      title: "The Cosmic Detective",
-      description:
-        "Investigate mysterious disappearances across multiple dimensions as a reality-hopping detective.",
-      genre: "Sci-Fi Mystery",
-      setting: "Interdimensional hub city",
-      character: "Dimensional Detective",
-    },
-    {
-      id: "fallback-2",
-      title: "The Dream Architect",
-      description:
-        "Shape and explore surreal dreamscapes while protecting sleeping minds from nightmare entities.",
-      genre: "Surreal Fantasy",
-      setting: "The collective unconscious",
-      character: "Dream Walker",
-    },
-    {
-      id: "fallback-3",
-      title: "The Time Merchant",
-      description:
-        "Trade moments, memories, and temporal artifacts in a marketplace that exists outside of time.",
-      genre: "Time Travel",
-      setting: "The Temporal Bazaar",
-      character: "Chrono Trader",
-    },
-    {
-      id: "fallback-4",
-      title: "The Memory Thief",
-      description:
-        "Navigate a world where memories are currency and you specialize in extracting the impossible to forget.",
-      genre: "Cyberpunk",
-      setting: "Neo-Tokyo 2087",
-      character: "Memory Hacker",
-    },
-  ];
+export function generateStoryPrompt(setting: StorySetting): string {
+  return `Create an engaging ${setting.genre.toLowerCase()} story based on this concept:
+
+  Title: ${setting.title}
+  Description: ${setting.description}
+  Setting: ${setting.setting}
+  Character Type: ${setting.character}
+  
+  Start the adventure by describing the opening scene in detail. Set up the character's situation and the immediate challenge they face. End with exactly 3 numbered action options for the player to choose from. Make it immersive and compelling.`;
 }

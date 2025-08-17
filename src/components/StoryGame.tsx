@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { TextFormatter } from "./TextFormatter";
-import { StorySetup } from "./StorySetup";
+import { generateStoryPrompt, StorySetting, StorySetup } from "./StorySetup";
 import { getToken } from "src/util";
 
 interface Item {
@@ -40,9 +40,9 @@ export const StoryGame: React.FC = () => {
     setShowStorySetup(true);
   };
 
-  const handleStartStoryWithPrompt = async (customPrompt: string) => {
+  const handleStartStoryWithPrompt = async (setting: StorySetting) => {
     setShowStorySetup(false);
-    await generateNextStoryStep(customPrompt, []);
+    await generateNextStoryStep(generateStoryPrompt(setting), []);
     setGameStarted(true);
   };
 
