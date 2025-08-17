@@ -35,6 +35,7 @@ export const StoryGame: React.FC = () => {
   const [error, setError] = useState("");
   const [gameStarted, setGameStarted] = useState(false);
   const [showStorySetup, setShowStorySetup] = useState(false);
+  const [customAction, setCustomAction] = useState("");
 
   const handleStartGame = () => {
     setShowStorySetup(true);
@@ -73,6 +74,13 @@ Based on the choice "${choice}", continue the story. You may:
 Provide 3 new options for what to do next, or if the story has reached a natural conclusion, you may end it with either a positive or negative outcome.`;
 
     await generateNextStoryStep(contextPrompt, newHistory);
+    setCustomAction(""); // Clear custom action after selection
+  };
+
+  const handleCustomAction = async () => {
+    if (!customAction.trim()) return;
+
+    await handleChoiceSelection(customAction.trim());
   };
 
   const handleItemUse = async (item: Item) => {
@@ -247,6 +255,7 @@ Continue the story based on how using this item affects the situation. Show the 
     setGameStarted(false);
     setShowStorySetup(false);
     setError("");
+    setCustomAction("");
   };
 
   if (showStorySetup) {
@@ -347,10 +356,38 @@ Continue the story based on how using this item affects the situation. Show the 
                   key={index}
                   className="button button-option"
                   onClick={() => handleChoiceSelection(option)}
+                  disabled={isLoading}
                 >
                   <TextFormatter text={option} />
                 </button>
               ))}
+            </div>
+
+            {/* Custom Action Input */}
+            <div className="custom-action-container">
+              <h4 className="custom-action-title">Or try your own action:</h4>
+              <div className="custom-action-input-group">
+                <input
+                  type="text"
+                  className="custom-action-input"
+                  placeholder="Describe what you want to do..."
+                  value={customAction}
+                  onChange={(e) => setCustomAction(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !isLoading) {
+                      handleCustomAction();
+                    }
+                  }}
+                  disabled={isLoading}
+                />
+                <button
+                  className="button button-custom-action"
+                  onClick={handleCustomAction}
+                  disabled={isLoading || !customAction.trim()}
+                >
+                  Try It
+                </button>
+              </div>
             </div>
           </div>
         )}
