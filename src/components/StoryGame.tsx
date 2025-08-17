@@ -204,25 +204,26 @@ Continue the story based on how using this item affects the situation. Show the 
   };
 
   const handleItemClick = (item: Item) => {
-    if (item.usable && !gameState.gameEnded) {
-      handleItemUse(item);
-      setShowInventory(false);
-    } else {
-      // Find the story beat where this item was found and scroll to it
-      const beatWithItem = gameState.storyBeats.find((beat) =>
-        beat.itemsFound.some((foundItem) => foundItem.id === item.id)
-      );
+    // Always navigate to the story beat where this item was found
+    const beatWithItem = gameState.storyBeats.find((beat) =>
+      beat.itemsFound.some((foundItem) => foundItem.id === item.id)
+    );
 
-      if (beatWithItem && storyContainerRef.current) {
-        const beatElement = document.querySelector(
-          `[data-beat-id="${beatWithItem.id}"]`
-        );
-        if (beatElement) {
-          beatElement.scrollIntoView({ behavior: "smooth", block: "center" });
-          setShowInventory(false);
-        }
+    if (beatWithItem && storyContainerRef.current) {
+      const beatElement = document.querySelector(
+        `[data-beat-id="${beatWithItem.id}"]`
+      );
+      if (beatElement) {
+        beatElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        setShowInventory(false);
       }
     }
+  };
+
+  const handleItemUseFromModal = (item: Item, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent the navigation click
+    handleItemUse(item);
+    setShowInventory(false);
   };
 
   const generateNextStoryStep = async (prompt: string) => {
@@ -646,28 +647,25 @@ Continue the story based on how using this item affects the situation. Show the 
                   {gameState.inventory.map((item) => (
                     <div
                       key={item.id}
-                      className={`inventory-modal-item ${
-                        item.usable && !gameState.gameEnded
-                          ? "usable"
-                          : "viewable"
-                      }`}
+                      className="inventory-modal-item"
                       onClick={() => handleItemClick(item)}
                     >
                       <div className="item-header">
                         <span className="item-name">{item.name}</span>
                         {item.usable && !gameState.gameEnded && (
-                          <span className="use-icon">⚡</span>
+                          <button
+                            className="item-use-button"
+                            onClick={(e) => handleItemUseFromModal(item, e)}
+                            disabled={isLoading || isStreaming}
+                          >
+                            ⚡ Use
+                          </button>
                         )}
                       </div>
                       <span className="item-description">
                         {item.description}
                       </span>
                       <span className="item-type">{item.type}</span>
-                      <div className="item-action-hint">
-                        {item.usable && !gameState.gameEnded
-                          ? "Click to use"
-                          : "Click to see where you found this"}
-                      </div>
                     </div>
                   ))}
                 </div>

@@ -1538,18 +1538,7 @@ body {
   position: relative;
 }
 
-.inventory-modal-item.usable {
-  border-color: #10b981;
-}
-
-.inventory-modal-item.usable:hover {
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-  border-color: #059669;
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.inventory-modal-item.viewable:hover {
+.inventory-modal-item:hover {
   background: linear-gradient(135deg, #eff6ff, #dbeafe);
   border-color: #3b82f6;
   transform: translateY(-2px);
@@ -1569,12 +1558,30 @@ body {
   color: var(--text-primary);
 }
 
-.use-icon {
-  background: #10b981;
+.item-use-button {
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
-  padding: var(--spacing-xs);
+  border: none;
+  padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.item-use-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.item-use-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .inventory-modal-item .item-description {
@@ -1632,11 +1639,7 @@ body {
 
 /* Dark mode adjustments for inventory modal */
 @media (prefers-color-scheme: dark) {
-  .inventory-modal-item.usable:hover {
-    background: linear-gradient(135deg, #064e3b, #065f46);
-  }
-  
-  .inventory-modal-item.viewable:hover {
+  .inventory-modal-item:hover {
     background: linear-gradient(135deg, #1e3a8a, #1e40af);
   }
 }
