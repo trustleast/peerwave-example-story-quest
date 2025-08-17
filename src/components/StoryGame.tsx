@@ -65,6 +65,9 @@ export const StoryGame: React.FC = () => {
   };
 
   const handleChoiceSelection = async (choice: string) => {
+    // Collapse all previous beats when a choice is selected
+    setExpandedBeats(new Set());
+
     // Mark the selected option in the current story beat
     const updatedBeats = [...gameState.storyBeats];
     if (updatedBeats.length > 0) {
@@ -146,21 +149,15 @@ Based on the choice "${choice}", continue the story. You may:
           beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
         }`
     );
-    const newHistory = [...storyHistory, `You used: ${item.name}`];
-
-    const inventoryContext =
-      gameState.inventory.length > 0
-        ? `\n\nCurrent inventory: ${gameState.inventory
-            .map((i) => `${i.name} (${i.description})`)
-            .join(", ")}`
-        : "";
 
     const contextPrompt = `Continue this adventure story. The player has just used an item from their inventory.
 
 Previous story:
-${newHistory.join("\n\n")}${inventoryContext}
+${storyHistory.join("\n\n")}
 
-The player used: ${item.name} - ${item.description}
+The player used this item: ${item.name}
+Item Type: ${item.type}
+Item Description: ${item.description}
 
 Continue the story based on how using this item affects the situation. Show the consequences of using this item and how it changes the player's circumstances. You may naturally describe finding new items as a result of using this one. Provide 3 new options for what to do next, or end the adventure if appropriate.`;
 
@@ -224,9 +221,6 @@ Continue the story based on how using this item affects the situation. Show the 
       setIsStreaming(true);
       setStreamingText("");
       setError("");
-
-      // Collapse all previous beats when starting a new story step
-      setExpandedBeats(new Set());
 
       const response = await fetchStoryContent(prompt, (chunk: string) => {
         setStreamingText((prev) => prev + chunk);
