@@ -70,14 +70,17 @@ export const StoryGame: React.FC = () => {
       currentBeat.selectedOption = choice;
     }
 
-    setGameState(prev => ({
+    setGameState((prev) => ({
       ...prev,
-      storyBeats: updatedBeats
+      storyBeats: updatedBeats,
     }));
 
     // Create context from story beats history
-    const storyHistory = gameState.storyBeats.map(beat => 
-      `${beat.storyText}${beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ''}`
+    const storyHistory = gameState.storyBeats.map(
+      (beat) =>
+        `${beat.storyText}${
+          beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
+        }`
     );
 
     const inventoryContext =
@@ -109,17 +112,68 @@ Provide 3 new options for what to do next, or if the story has reached a natural
     await handleChoiceSelection(customAction.trim());
   };
 
+  const generateNewOptions = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+
+      // Create context from story beats history
+      const storyHistory = gameState.storyBeats.map(
+        (beat) =>
+          `${beat.storyText}${
+            beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
+          }`
+      );
+
+      const inventoryContext =
+        gameState.inventory.length > 0
+          ? `\n\nCurrent inventory: ${gameState.inventory
+              .map((item) => `${item.name} (${item.description})`)
+              .join(", ")}`
+          : "";
+
+      const contextPrompt = `Based on this adventure story, generate 3 new action options for what the player could do next:
+
+${storyHistory.join("\n\n")}${inventoryContext}
+
+The player is looking for new ways to continue their adventure. Generate 3 creative, different action options that make sense given the current situation. Return only the 3 numbered options, nothing else.`;
+
+      const response = await fetchStoryContent(contextPrompt);
+
+      // Parse the options from the response
+      const lines = response.split("\n").filter((line) => line.trim());
+      const options = lines
+        .filter((line) => line.match(/^\\d+\\.|^[•-]/))
+        .map((line) => line.replace(/^\\d+\\.\\s*|^[•-]\\s*/, "").trim())
+        .filter((option) => option.length > 0)
+        .slice(0, 3); // Limit to 3 options
+
+      if (options.length > 0) {
+        setGameState((prev) => ({
+          ...prev,
+          currentOptions: options,
+        }));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to generate new options"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleItemUse = async (item: Item) => {
     if (!item.usable) return;
 
     // Create context from story beats history
-    const storyHistory = gameState.storyBeats.map(beat => 
-      `${beat.storyText}${beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ''}`
+    const storyHistory = gameState.storyBeats.map(
+      (beat) =>
+        `${beat.storyText}${
+          beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
+        }`
     );
-    const newHistory = [
-      ...storyHistory,
-      `You used: ${item.name}`,
-    ];
+    const newHistory = [...storyHistory, `You used: ${item.name}`];
 
     const inventoryContext =
       gameState.inventory.length > 0
@@ -252,7 +306,7 @@ Continue the story based on how using this item affects the situation. Show the 
             if (currentBeat) {
               currentBeat.itemsFound = newItems;
             }
-            
+
             return {
               ...prev,
               storyBeats: updatedBeats,
@@ -275,10 +329,21 @@ Continue the story based on how using this item affects the situation. Show the 
     // First, try to load saved game state
     const savedGame = loadGameState();
     if (savedGame) {
-      setGameState(savedGame.gameState);
+      const loadedGameState = savedGame.gameState;
+
+      setGameState(loadedGameState);
       setGameStarted(savedGame.gameStarted);
       setStoryTitle(savedGame.storyTitle);
       setLoadedFromSave(true);
+
+      // Generate new options if we have story beats but no current options
+      if (
+        loadedGameState.storyBeats.length > 0 &&
+        loadedGameState.currentOptions.length === 0 &&
+        !loadedGameState.gameEnded
+      ) {
+        generateNewOptions();
+      }
 
       // Hide the loaded indicator after a few seconds
       setTimeout(() => {
@@ -305,14 +370,23 @@ Continue the story based on how using this item affects the situation. Show the 
 
   // Save game state whenever it changes (but not during streaming or on initial load)
   useEffect(() => {
-    if (gameStarted && !isStreaming && gameState.storyBeats.length > 0 && !loadedFromSave) {
+    if (
+      gameStarted &&
+      !isStreaming &&
+      gameState.storyBeats.length > 0 &&
+      !loadedFromSave
+    ) {
       saveGameState(gameState, gameStarted, storyTitle);
     }
   }, [gameState, gameStarted, storyTitle, isStreaming, loadedFromSave]);
 
   // Scroll to bottom only on first load
   useEffect(() => {
-    if (loadedFromSave && gameState.storyBeats.length > 0 && storyContainerRef.current) {
+    if (
+      loadedFromSave &&
+      gameState.storyBeats.length > 0 &&
+      storyContainerRef.current
+    ) {
       // Smooth scroll to bottom when loading from save
       storyContainerRef.current.scrollTo({
         top: storyContainerRef.current.scrollHeight,
@@ -399,7 +473,7 @@ Continue the story based on how using this item affects the situation. Show the 
                 <TextFormatter text={beat.storyText} />
               </div>
             </div>
-            
+
             {/* Show items found in this beat */}
             {beat.itemsFound.length > 0 && (
               <div className="beat-items-found">
@@ -413,24 +487,23 @@ Continue the story based on how using this item affects the situation. Show the 
                 </div>
               </div>
             )}
-            
+
             {/* Show selected option for this beat */}
             {beat.selectedOption && (
               <div className="beat-choice">
-                <p className="choice-text">➤ You chose: {beat.selectedOption}</p>
+                <p className="choice-text">
+                  ➤ You chose: {beat.selectedOption}
+                </p>
               </div>
             )}
           </div>
         ))}
-        
+
         {/* Current streaming content */}
         {isStreaming && (
           <div className="story-text">
             <div className="story-content">
-              <TextFormatter
-                isStreaming={isStreaming}
-                text={streamingText}
-              />
+              <TextFormatter isStreaming={isStreaming} text={streamingText} />
             </div>
           </div>
         )}
