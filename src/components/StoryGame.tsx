@@ -49,6 +49,9 @@ export const StoryGame: React.FC = () => {
   const [loadedFromSave, setLoadedFromSave] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [expandedBeats, setExpandedBeats] = useState<Set<string>>(new Set());
+  const [selectedItemForCustomAction, setSelectedItemForCustomAction] =
+    useState<Item | null>(null);
+  const [itemCustomAction, setItemCustomAction] = useState("");
 
   // Ref for auto-scrolling to latest content
   const storyContainerRef = useRef<HTMLDivElement>(null);
@@ -188,6 +191,53 @@ Continue the story based on how using this item affects the situation. Show the 
     event.stopPropagation(); // Prevent the navigation click
     handleItemUse(item);
     setShowInventory(false);
+  };
+
+  const handleItemCustomAction = async (item: Item) => {
+    if (!itemCustomAction.trim()) return;
+
+    // Collapse all previous beats when a choice is selected
+    setExpandedBeats(new Set());
+
+    // Create context from story beats history
+    const storyHistory = gameState.storyBeats.map(
+      (beat) =>
+        `${beat.storyText}${
+          beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
+        }`
+    );
+
+    const inventoryContext =
+      gameState.inventory.length > 0
+        ? `\n\nCurrent inventory: ${gameState.inventory
+            .map((i) => `${i.name} (${i.description})`)
+            .join(", ")}`
+        : "";
+
+    const contextPrompt = `Continue this adventure story. The player has decided to use an item from their inventory in a custom way.
+
+Previous story:
+${storyHistory.join("\n\n")}${inventoryContext}
+
+The player used: ${item.name} - ${item.description}
+Custom action: "${itemCustomAction.trim()}"
+
+Continue the story based on how the player uses this item with their described action. Show the consequences of using this item in this specific way and how it changes the player's circumstances. You may naturally describe finding new items as a result of this action.`;
+
+    // Remove the item if it's consumable
+    if (item.type === "consumable") {
+      setGameState((prev) => ({
+        ...prev,
+        inventory: prev.inventory.filter((i) => i.id !== item.id),
+      }));
+    }
+
+    // Clear the custom action and close inventory
+    setItemCustomAction("");
+    setSelectedItemForCustomAction(null);
+    setShowInventory(false);
+
+    await generateNextStoryStep(contextPrompt);
   };
 
   const toggleBeatExpansion = (beatId: string) => {
@@ -671,14 +721,22 @@ Continue the story based on how using this item affects the situation. Show the 
       {showInventory && (
         <div
           className="inventory-modal-overlay"
-          onClick={() => setShowInventory(false)}
+          onClick={() => {
+            setShowInventory(false);
+            setSelectedItemForCustomAction(null);
+            setItemCustomAction("");
+          }}
         >
           <div className="inventory-modal" onClick={(e) => e.stopPropagation()}>
             <div className="inventory-modal-header">
               <h2 className="inventory-modal-title">🎒 Your Inventory</h2>
               <button
                 className="inventory-close-button"
-                onClick={() => setShowInventory(false)}
+                onClick={() => {
+                  setShowInventory(false);
+                  setSelectedItemForCustomAction(null);
+                  setItemCustomAction("");
+                }}
               >
                 ✕
               </button>
@@ -687,32 +745,108 @@ Continue the story based on how using this item affects the situation. Show the 
               {gameState.inventory.length === 0 ? (
                 <p className="empty-inventory">Your inventory is empty</p>
               ) : (
-                <div className="inventory-modal-grid">
-                  {gameState.inventory.map((item) => (
-                    <div
-                      key={item.id}
-                      className="inventory-modal-item"
-                      onClick={() => handleItemClick(item)}
-                    >
-                      <div className="item-header">
-                        <span className="item-name">{item.name}</span>
-                        {item.usable && !gameState.gameEnded && (
+                <>
+                  <div className="inventory-modal-grid">
+                    {gameState.inventory.map((item) => (
+                      <div
+                        key={item.id}
+                        className="inventory-modal-item"
+                        onClick={() => handleItemClick(item)}
+                      >
+                        <div className="item-header">
+                          <span className="item-name">{item.name}</span>
+                          <div className="item-actions">
+                            {item.usable && !gameState.gameEnded && (
+                              <button
+                                className="item-use-button"
+                                onClick={(e) => handleItemUseFromModal(item, e)}
+                                disabled={isLoading || isStreaming}
+                              >
+                                ⚡ Use
+                              </button>
+                            )}
+                            {!gameState.gameEnded && (
+                              <button
+                                className="item-use-button custom"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedItemForCustomAction(item);
+                                }}
+                                disabled={isLoading || isStreaming}
+                              >
+                                ⚙️ Describe
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <span className="item-description">
+                          {item.description}
+                        </span>
+                        <span className="item-type">{item.type}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Custom Action Input */}
+                  {selectedItemForCustomAction && (
+                    <div className="custom-item-action-section">
+                      <h3 className="custom-action-title">
+                        Use {selectedItemForCustomAction.name} with custom
+                        action:
+                      </h3>
+                      <div className="custom-item-action-input-group">
+                        <input
+                          type="text"
+                          className="custom-item-action-input"
+                          placeholder={`Describe how you want to use ${selectedItemForCustomAction.name}...`}
+                          value={itemCustomAction}
+                          onChange={(e) => setItemCustomAction(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (
+                              e.key === "Enter" &&
+                              !isLoading &&
+                              !isStreaming &&
+                              itemCustomAction.trim()
+                            ) {
+                              handleItemCustomAction(
+                                selectedItemForCustomAction
+                              );
+                            }
+                          }}
+                          disabled={isLoading || isStreaming}
+                          autoFocus
+                        />
+                        <div className="custom-item-action-buttons">
                           <button
-                            className="item-use-button"
-                            onClick={(e) => handleItemUseFromModal(item, e)}
+                            className="button button-custom-action"
+                            onClick={() =>
+                              handleItemCustomAction(
+                                selectedItemForCustomAction
+                              )
+                            }
+                            disabled={
+                              isLoading ||
+                              isStreaming ||
+                              !itemCustomAction.trim()
+                            }
+                          >
+                            Use It
+                          </button>
+                          <button
+                            className="button button-secondary"
+                            onClick={() => {
+                              setSelectedItemForCustomAction(null);
+                              setItemCustomAction("");
+                            }}
                             disabled={isLoading || isStreaming}
                           >
-                            ⚡ Use
+                            Cancel
                           </button>
-                        )}
+                        </div>
                       </div>
-                      <span className="item-description">
-                        {item.description}
-                      </span>
-                      <span className="item-type">{item.type}</span>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
