@@ -47,6 +47,7 @@ export const StoryGame: React.FC = () => {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [loadedFromSave, setLoadedFromSave] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
 
   // Ref for auto-scrolling to latest content
   const storyContainerRef = useRef<HTMLDivElement>(null);
@@ -200,6 +201,28 @@ Continue the story based on how using this item affects the situation. Show the 
     }
 
     await generateNextStoryStep(contextPrompt);
+  };
+
+  const handleItemClick = (item: Item) => {
+    if (item.usable && !gameState.gameEnded) {
+      handleItemUse(item);
+      setShowInventory(false);
+    } else {
+      // Find the story beat where this item was found and scroll to it
+      const beatWithItem = gameState.storyBeats.find((beat) =>
+        beat.itemsFound.some((foundItem) => foundItem.id === item.id)
+      );
+
+      if (beatWithItem && storyContainerRef.current) {
+        const beatElement = document.querySelector(
+          `[data-beat-id="${beatWithItem.id}"]`
+        );
+        if (beatElement) {
+          beatElement.scrollIntoView({ behavior: "smooth", block: "center" });
+          setShowInventory(false);
+        }
+      }
+    }
   };
 
   const generateNextStoryStep = async (prompt: string) => {
@@ -467,7 +490,7 @@ Continue the story based on how using this item affects the situation. Show the 
       <div className="story-container" ref={storyContainerRef}>
         {/* Story Beat History */}
         {gameState.storyBeats.map((beat) => (
-          <div key={beat.id} className="story-beat">
+          <div key={beat.id} className="story-beat" data-beat-id={beat.id}>
             <div className="story-text">
               <div className="story-content">
                 <TextFormatter text={beat.storyText} />
@@ -504,33 +527,6 @@ Continue the story based on how using this item affects the situation. Show the 
           <div className="story-text">
             <div className="story-content">
               <TextFormatter isStreaming={isStreaming} text={streamingText} />
-            </div>
-          </div>
-        )}
-
-        {/* Inventory Display */}
-        {gameState.inventory.length > 0 && (
-          <div className="inventory-container">
-            <h3 className="inventory-title">Inventory</h3>
-            <div className="inventory-grid">
-              {gameState.inventory.map((item) => (
-                <div key={item.id} className="inventory-item">
-                  <div className="item-info">
-                    <span className="item-name">{item.name}</span>
-                    <span className="item-description">{item.description}</span>
-                    <span className="item-type">{item.type}</span>
-                  </div>
-                  {item.usable && !gameState.gameEnded && (
-                    <button
-                      className="button button-item-use"
-                      onClick={() => handleItemUse(item)}
-                      disabled={isLoading || isStreaming}
-                    >
-                      Use
-                    </button>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
         )}
@@ -594,6 +590,18 @@ Continue the story based on how using this item affects the situation. Show the 
               </div>
             </div>
           )}
+        {/* Compact Inventory Button */}
+        {gameState.inventory.length > 0 && (
+          <div className="inventory-summary">
+            <button
+              className="button button-inventory"
+              onClick={() => setShowInventory(true)}
+              disabled={isLoading || isStreaming}
+            >
+              Inventory ({gameState.inventory.length})
+            </button>
+          </div>
+        )}
 
         {isLoading && !isStreaming && (
           <div className="loading-container">
@@ -613,6 +621,61 @@ Continue the story based on how using this item affects the situation. Show the 
           Start New Adventure
         </button>
       </div>
+
+      {/* Inventory Modal */}
+      {showInventory && (
+        <div
+          className="inventory-modal-overlay"
+          onClick={() => setShowInventory(false)}
+        >
+          <div className="inventory-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="inventory-modal-header">
+              <h2 className="inventory-modal-title">🎒 Your Inventory</h2>
+              <button
+                className="inventory-close-button"
+                onClick={() => setShowInventory(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="inventory-modal-content">
+              {gameState.inventory.length === 0 ? (
+                <p className="empty-inventory">Your inventory is empty</p>
+              ) : (
+                <div className="inventory-modal-grid">
+                  {gameState.inventory.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`inventory-modal-item ${
+                        item.usable && !gameState.gameEnded
+                          ? "usable"
+                          : "viewable"
+                      }`}
+                      onClick={() => handleItemClick(item)}
+                    >
+                      <div className="item-header">
+                        <span className="item-name">{item.name}</span>
+                        {item.usable && !gameState.gameEnded && (
+                          <span className="use-icon">⚡</span>
+                        )}
+                      </div>
+                      <span className="item-description">
+                        {item.description}
+                      </span>
+                      <span className="item-type">{item.type}</span>
+                      <div className="item-action-hint">
+                        {item.usable && !gameState.gameEnded
+                          ? "Click to use"
+                          : "Click to see where you found this"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
