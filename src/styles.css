@@ -369,7 +369,32 @@ body {
 
 .story-container {
   margin-bottom: var(--spacing-xl);
-  overflow: visible;
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  padding-right: var(--spacing-xs); /* Space for scrollbar */
+}
+
+/* Custom scrollbar styling */
+.story-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.story-container::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.story-container::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: var(--radius-sm);
+  opacity: 0.7;
+}
+
+.story-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-hover);
+  opacity: 1;
 }
 
 .story-text {
@@ -788,6 +813,11 @@ body {
     font-size: var(--font-size-base);
   }
   
+  .story-container {
+    max-height: 60vh; /* Slightly shorter on mobile */
+    padding-right: 0; /* Remove extra padding on mobile */
+  }
+  
   .subtitle {
     font-size: var(--font-size-base);
   }
@@ -798,6 +828,10 @@ body {
   .story-text {
     padding: var(--spacing-md);
     font-size: var(--font-size-sm);
+  }
+  
+  .story-container {
+    max-height: 50vh; /* Even shorter on very small screens */
   }
   
   .button-option {

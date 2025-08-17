@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { TextFormatter } from "./TextFormatter";
 import { generateStoryPrompt, StorySetting, StorySetup } from "./StorySetup";
 import { getToken } from "src/util";
@@ -40,6 +40,9 @@ export const StoryGame: React.FC = () => {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [loadedFromSave, setLoadedFromSave] = useState(false);
+
+  // Ref for auto-scrolling to latest content
+  const storyContainerRef = useRef<HTMLDivElement>(null);
 
   const handleStartGame = () => {
     setShowStorySetup(true);
@@ -269,6 +272,26 @@ Continue the story based on how using this item affects the situation. Show the 
     }
   }, [gameState, gameStarted, storyTitle, isStreaming, loadedFromSave]);
 
+  // Auto-scroll to keep latest content visible during streaming
+  useEffect(() => {
+    if (isStreaming && storyContainerRef.current) {
+      // Scroll to the bottom of the story container
+      storyContainerRef.current.scrollTop =
+        storyContainerRef.current.scrollHeight;
+    }
+  }, [streamingText, isStreaming]);
+
+  // Scroll to latest content when new story content is added
+  useEffect(() => {
+    if (gameState.storyText && storyContainerRef.current && !isStreaming) {
+      // Smooth scroll to bottom when new content is added
+      storyContainerRef.current.scrollTo({
+        top: storyContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [gameState.storyText, isStreaming]);
+
   const resetGame = () => {
     clearSavedGame();
     setGameState({
@@ -339,7 +362,7 @@ Continue the story based on how using this item affects the situation. Show the 
           <p className="save-text">📖 Game loaded from save</p>
         </div>
       )}
-      <div className="story-container">
+      <div className="story-container" ref={storyContainerRef}>
         {(gameState.storyText !== "" || isStreaming) && (
           <div className="story-text">
             <div className="story-content">
