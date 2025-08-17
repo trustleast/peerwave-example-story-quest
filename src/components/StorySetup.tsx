@@ -211,6 +211,9 @@ function getCleanedJSON(jsonString: string): string {
   if (!jsonString.endsWith("]")) {
     jsonString += "]";
   }
+
+  // Remove duplicate ""s if they are preceeded by text
+  jsonString = jsonString.replace(/(\w+)""/g, '$1"');
   return jsonString;
 }
 
