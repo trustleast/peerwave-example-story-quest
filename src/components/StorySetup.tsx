@@ -348,5 +348,5 @@ export function generateStoryPrompt(setting: StorySetting): string {
   Setting: ${setting.setting}
   Character Type: ${setting.character}
   
-  Start the adventure by describing the opening scene in detail. Set up the character's situation and the immediate challenge they face. End with exactly 3 numbered action options for the player to choose from. Make it immersive and compelling.`;
+  Start the adventure by describing the opening scene in detail. Set up the character's situation and the immediate challenge they face. Make it immersive and compelling.`;
 }

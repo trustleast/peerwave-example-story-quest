@@ -101,8 +101,7 @@ Based on the choice "${choice}", continue the story. You may:
 - Allow positive or negative story endings when appropriate  
 - Create situations where existing items in the player's inventory might be useful
 - Present meaningful consequences for previous actions
-
-Provide 3 new options for what to do next, or if the story has reached a natural conclusion, you may end it with either a positive or negative outcome.`;
+`;
 
     await generateNextStoryStep(contextPrompt);
     setCustomAction(""); // Clear custom action after selection
@@ -114,41 +113,13 @@ Provide 3 new options for what to do next, or if the story has reached a natural
     await handleChoiceSelection(customAction.trim());
   };
 
-  const generateNewOptions = async () => {
+  const generateNewOptions = async (latestStoryBeat: string) => {
     try {
       setIsLoading(true);
       setError("");
 
-      // Create context from story beats history
-      const storyHistory = gameState.storyBeats.map(
-        (beat) =>
-          `${beat.storyText}${
-            beat.selectedOption ? `\n\nYou chose: ${beat.selectedOption}` : ""
-          }`
-      );
-
-      const inventoryContext =
-        gameState.inventory.length > 0
-          ? `\n\nCurrent inventory: ${gameState.inventory
-              .map((item) => `${item.name} (${item.description})`)
-              .join(", ")}`
-          : "";
-
-      const contextPrompt = `Based on this adventure story, generate 3 new action options for what the player could do next:
-
-${storyHistory.join("\n\n")}${inventoryContext}
-
-The player is looking for new ways to continue their adventure. Generate 3 creative, different action options that make sense given the current situation. Return only the 3 numbered options, nothing else.`;
-
-      const response = await fetchStoryContent(contextPrompt);
-
-      // Parse the options from the response
-      const lines = response.split("\n").filter((line) => line.trim());
-      const options = lines
-        .filter((line) => line.match(/^\\d+\\.|^[•-]/))
-        .map((line) => line.replace(/^\\d+\\.\\s*|^[•-]\\s*/, "").trim())
-        .filter((option) => option.length > 0)
-        .slice(0, 3); // Limit to 3 options
+      // Use the new generateStoryOptions function
+      const options = await generateStoryOptions(latestStoryBeat, gameState);
 
       if (options.length > 0) {
         setGameState((prev) => ({
@@ -263,9 +234,6 @@ Continue the story based on how using this item affects the situation. Show the 
 
       console.log("Raw LLM Response:", response);
 
-      // Parse the response to extract story and endings
-      const lines = response.split("\n").filter((line) => line.trim());
-
       // Check for game ending indicators
       const endingMatch = response.match(
         /\*\*(GAME OVER|THE END|ADVENTURE COMPLETE|VICTORY|DEFEAT|ENDING):\s*(POSITIVE|NEGATIVE)\*\*/i
@@ -284,37 +252,14 @@ Continue the story based on how using this item affects the situation. Show the 
           .trim();
       }
 
-      // Find where options start (look for numbered items or bullet points)
-      let optionsStartIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].match(/^\d+\.|^[•-]/) && !lines[i].includes("GAME OVER")) {
-          optionsStartIndex = i;
-          break;
-        }
-      }
-
+      // The story text is the entire response (no options parsing needed)
       let storyText = "";
-      let options: string[] = [];
-
       if (gameEnded) {
         // For ended games, use everything before ending marker as story
         const endingIndex = response.indexOf(endingMatch![0]);
         storyText = response.slice(0, endingIndex).trim();
-      } else if (optionsStartIndex > -1) {
-        // Story is everything before options
-        const filteredLines = cleanOptionDescriptions(
-          lines.slice(0, optionsStartIndex)
-        );
-        storyText = filteredLines.join("\n").trim();
-
-        // Options are the numbered/bulleted items
-        options = lines
-          .slice(optionsStartIndex)
-          .map((line) => line.replace(/^\d+\.\s*|^[•-]\s*/, "").trim())
-          .filter((option) => option.length > 0)
-          .slice(0, 3); // Limit to 3 options
       } else {
-        // If no clear options found, use the whole response as story
+        // Use the whole response as story text
         storyText = response.trim();
       }
 
@@ -322,7 +267,7 @@ Continue the story based on how using this item affects the situation. Show the 
       const newBeat: StoryBeat = {
         id: `beat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         storyText,
-        availableOptions: options,
+        availableOptions: [],
         itemsFound: [],
         timestamp: Date.now(),
       };
@@ -331,7 +276,7 @@ Continue the story based on how using this item affects the situation. Show the 
       setGameState((prev) => ({
         ...prev,
         storyBeats: [...prev.storyBeats, newBeat],
-        currentOptions: options,
+        currentOptions: [],
         gameEnded,
         endingType,
         endingMessage,
@@ -343,27 +288,53 @@ Continue the story based on how using this item affects the situation. Show the 
       setIsStreaming(false);
       setStreamingText("");
 
-      // Make a second call to determine if items should be added
+      // Generate options and check for items if game hasn't ended
       if (!gameEnded) {
-        const newItems = await checkForItemsToAdd(
-          storyText,
-          gameState.inventory
-        );
-        if (newItems.length > 0) {
-          // Update both the story beat and inventory
-          setGameState((prev) => {
-            const updatedBeats = [...prev.storyBeats];
-            const currentBeat = updatedBeats[updatedBeats.length - 1];
-            if (currentBeat) {
-              currentBeat.itemsFound = newItems;
-            }
+        try {
+          // Generate story options separately
+          const generatedOptions = await generateStoryOptions(
+            storyText,
+            gameState
+          );
 
-            return {
-              ...prev,
-              storyBeats: updatedBeats,
-              inventory: [...prev.inventory, ...newItems],
-            };
-          });
+          // Update the game state with the generated options
+          setGameState((prev) => ({
+            ...prev,
+            currentOptions: generatedOptions,
+          }));
+
+          // Also check for items to add
+          const newItems = await checkForItemsToAdd(
+            storyText,
+            gameState.inventory
+          );
+          if (newItems.length > 0) {
+            // Update both the story beat and inventory
+            setGameState((prev) => {
+              const updatedBeats = [...prev.storyBeats];
+              const currentBeat = updatedBeats[updatedBeats.length - 1];
+              if (currentBeat) {
+                currentBeat.itemsFound = newItems;
+              }
+
+              return {
+                ...prev,
+                storyBeats: updatedBeats,
+                inventory: [...prev.inventory, ...newItems],
+              };
+            });
+          }
+        } catch (optionsError) {
+          console.error("Failed to generate options:", optionsError);
+          // Fallback to some default options if generation fails
+          setGameState((prev) => ({
+            ...prev,
+            currentOptions: [
+              "Look around carefully for clues or items",
+              "Continue forward cautiously",
+              "Take a moment to think and plan your next move",
+            ],
+          }));
         }
       }
     } catch (err) {
@@ -393,7 +364,10 @@ Continue the story based on how using this item affects the situation. Show the 
         loadedGameState.currentOptions.length === 0 &&
         !loadedGameState.gameEnded
       ) {
-        generateNewOptions();
+        generateNewOptions(
+          loadedGameState.storyBeats[loadedGameState.storyBeats.length - 1]
+            .storyText
+        );
       }
 
       // Hide the loaded indicator after a few seconds
@@ -578,9 +552,10 @@ Continue the story based on how using this item affects the situation. Show the 
                 {/* Show selected option for this beat */}
                 {beat.selectedOption && (
                   <div className="beat-choice">
-                    <p className="choice-text">
-                      ➤ You chose: <TextFormatter text={beat.selectedOption} />
-                    </p>
+                    <TextFormatter
+                      className="choice-text"
+                      text={`➤ You chose:  ${beat.selectedOption}`}
+                    />
                   </div>
                 )}
               </div>
@@ -671,14 +646,14 @@ Continue the story based on how using this item affects the situation. Show the 
           )}
 
         {/* Compact Inventory Button - Always show if has items or streaming to prevent shifts */}
-        {(gameState.inventory.length > 0 || isStreaming) && (
+        {gameState.inventory.length > 0 && (
           <div className="inventory-summary">
             <button
               className="button button-inventory"
               onClick={() => setShowInventory(true)}
               disabled={isLoading && !isStreaming}
             >
-              🎒 Inventory ({gameState.inventory.length})
+              Inventory ({gameState.inventory.length})
             </button>
           </div>
         )}
@@ -802,27 +777,6 @@ function loadGameState(): SavedGameState | null {
 
 function clearSavedGame() {
   localStorage.removeItem(STORY_SAVE_KEY);
-}
-
-const ignoredSentenceEndings = ["options", "choices", "response"].map(
-  (ending) => ending + ":"
-);
-function cleanOptionDescriptions(sentences: string[]): string[] {
-  // Remove the last sentence if it describes user options
-  if (sentences.length > 1) {
-    let lastSentence = sentences[sentences.length - 1].toLowerCase().trim();
-    if (lastSentence.endsWith("**")) {
-      lastSentence = lastSentence.slice(0, -2);
-    }
-
-    if (
-      ignoredSentenceEndings.some((ending) => lastSentence.endsWith(ending))
-    ) {
-      return sentences.slice(0, -1);
-    }
-  }
-
-  return sentences;
 }
 
 interface AddItemTool {
@@ -967,6 +921,83 @@ Should any items be added to the player's inventory based on this story segment?
   }
 }
 
+async function generateStoryOptions(
+  storyText: string,
+  gameState: GameState
+): Promise<string[]> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Redirect: window.location.pathname + window.location.search,
+  };
+
+  const token = getToken();
+  if (token) {
+    headers["Authorization"] = token;
+  }
+
+  const inventoryContext =
+    gameState.inventory.length > 0
+      ? `\n\nCurrent inventory: ${gameState.inventory
+          .map((item) => `${item.name} (${item.description})`)
+          .join(", ")}`
+      : "";
+
+  const response = await fetch("https://api.peerwave.ai/api/chat", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: "cheapest",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert game designer creating action options for an interactive text adventure.
+
+IMPORTANT: Your job is to generate up to 3 numbered action options based on the current story situation.
+
+RULES:
+- Each option should be a clear, actionable choice the player can make
+- Options should be diverse - combat, exploration, social, creative approaches
+- Consider the player's current inventory when suggesting actions
+- Make options engaging and lead to interesting story developments
+- Return ONLY the 3 numbered options, nothing else
+
+FORMAT:
+1. [First action option]
+2. [Second action option]  
+3. [Third action option]`,
+        },
+        {
+          role: "user",
+          content: `Based on this story situation, generate up to 3 action options for the player:
+
+${inventoryContext}
+
+${storyText}
+
+What are 3 interesting things the player could do next?`,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate options: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const optionsText = data.message.content;
+
+  // Parse the options from the response
+  const lines = optionsText.split("\n").filter((line) => line.trim());
+  const options = lines
+    .filter((line) => line.match(/^\d+\.|^[•-]/))
+    .map((line) => line.replace(/^\d+\.\s*|^[•-]\s*/, "").trim())
+    .filter((option) => option.length > 0)
+    .slice(0, 3); // Limit to 3 options
+
+  return options;
+}
+
 async function fetchStoryContent(
   prompt: string,
   onChunk?: (chunk: string) => void
@@ -987,30 +1018,36 @@ async function fetchStoryContent(
     endpoint = "https://api.peerwave.ai/api/chat/stream";
   }
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: "cheapest",
-      messages: [
-        {
-          role: "system",
-          content: `You are a creative storyteller for an interactive text adventure game. 
+  const messages = [
+    {
+      role: "system",
+      content: `You are a creative storyteller for an interactive text adventure game. 
+
+IMPORTANT: Your job is to write ONLY the story narrative. Do NOT include any action options or choices in your response.
 
 ITEMS: When the player finds, receives, or picks up items in your story, simply describe them naturally in the narrative. The inventory system will automatically detect and add appropriate items.
 
 ENDINGS: You can end the adventure when it reaches a natural conclusion using:
 **ENDING: POSITIVE** or **ENDING: NEGATIVE** followed by a final message
 
-RESPONSES: Unless ending the game, always end your responses with exactly 3 numbered action options that the player can choose from. Keep the story engaging and immersive.
+RESPONSES: Write engaging, immersive narrative that describes what happens as a result of the player's actions. Focus on vivid descriptions, character development, and story progression. End your response naturally without including any numbered options or choices - those will be generated separately.
 
-Focus on creating compelling narrative moments where the player might discover useful items, face meaningful choices, and experience consequences for their actions.`,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+Focus on creating compelling narrative moments where the player might discover useful items and experience meaningful consequences for their actions.`,
+    },
+    {
+      role: "user",
+      content: prompt,
+    },
+  ];
+
+  console.log("Generating new story options", messages);
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: "cheapest",
+      messages: messages,
     }),
   });
 
