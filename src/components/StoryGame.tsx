@@ -48,6 +48,7 @@ export const StoryGame: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [loadedFromSave, setLoadedFromSave] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [expandedBeats, setExpandedBeats] = useState<Set<string>>(new Set());
 
   // Ref for auto-scrolling to latest content
   const storyContainerRef = useRef<HTMLDivElement>(null);
@@ -209,14 +210,9 @@ Continue the story based on how using this item affects the situation. Show the 
       beat.itemsFound.some((foundItem) => foundItem.id === item.id)
     );
 
-    if (beatWithItem && storyContainerRef.current) {
-      const beatElement = document.querySelector(
-        `[data-beat-id="${beatWithItem.id}"]`
-      );
-      if (beatElement) {
-        beatElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        setShowInventory(false);
-      }
+    if (beatWithItem) {
+      setShowInventory(false);
+      expandBeatAndNavigate(beatWithItem.id);
     }
   };
 
@@ -226,12 +222,40 @@ Continue the story based on how using this item affects the situation. Show the 
     setShowInventory(false);
   };
 
+  const toggleBeatExpansion = (beatId: string) => {
+    setExpandedBeats((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(beatId)) {
+        newSet.delete(beatId);
+      } else {
+        newSet.add(beatId);
+      }
+      return newSet;
+    });
+  };
+
+  const expandBeatAndNavigate = (beatId: string) => {
+    // Expand the specific beat
+    setExpandedBeats((prev) => new Set(prev).add(beatId));
+
+    // Navigate to the beat
+    setTimeout(() => {
+      const beatElement = document.querySelector(`[data-beat-id="${beatId}"]`);
+      if (beatElement) {
+        beatElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100); // Small delay to ensure expansion animation starts
+  };
+
   const generateNextStoryStep = async (prompt: string) => {
     try {
       setIsLoading(true);
       setIsStreaming(true);
       setStreamingText("");
       setError("");
+
+      // Collapse all previous beats when starting a new story step
+      setExpandedBeats(new Set());
 
       const response = await fetchStoryContent(prompt, (chunk: string) => {
         setStreamingText((prev) => prev + chunk);
@@ -312,6 +336,9 @@ Continue the story based on how using this item affects the situation. Show the 
         endingType,
         endingMessage,
       }));
+
+      // Auto-expand the newest beat
+      setExpandedBeats((prev) => new Set(prev).add(newBeat.id));
 
       setIsStreaming(false);
       setStreamingText("");
@@ -495,44 +522,79 @@ Continue the story based on how using this item affects the situation. Show the 
       )}
       <div className="story-container" ref={storyContainerRef}>
         {/* Story Beat History */}
-        {gameState.storyBeats.map((beat) => (
-          <div key={beat.id} className="story-beat" data-beat-id={beat.id}>
-            <div className="story-text">
-              <div className="story-content">
-                <TextFormatter text={beat.storyText} />
+        {gameState.storyBeats.map((beat, index) => {
+          const isExpanded = expandedBeats.has(beat.id);
+          const isLastBeat = index === gameState.storyBeats.length - 1;
+
+          return (
+            <div
+              key={beat.id}
+              className={`story-beat ${isExpanded ? "expanded" : "collapsed"}`}
+              data-beat-id={beat.id}
+            >
+              {/* Beat Header - Always Visible */}
+              <div
+                className="beat-header"
+                onClick={() => toggleBeatExpansion(beat.id)}
+              >
+                <div className="beat-title">
+                  <span className="beat-number">#{index + 1}</span>
+                  <span className="beat-preview">
+                    {beat.storyText.slice(0, 100)}
+                    {beat.storyText.length > 100 ? "..." : ""}
+                  </span>
+                </div>
+                <button className="beat-toggle">
+                  {isExpanded ? "−" : "+"}
+                </button>
+              </div>
+
+              {/* Beat Content - Collapsible */}
+              <div
+                className={`beat-content ${
+                  isExpanded || isLastBeat ? "visible" : "hidden"
+                }`}
+              >
+                <div className="story-text">
+                  <div className="story-content">
+                    <TextFormatter text={beat.storyText} />
+                  </div>
+                </div>
+
+                {/* Show items found in this beat */}
+                {beat.itemsFound.length > 0 && (
+                  <div className="beat-items-found">
+                    <p className="items-found-text">🎒 Items found:</p>
+                    <div className="found-items-list">
+                      {beat.itemsFound.map((item) => (
+                        <span key={item.id} className="found-item">
+                          {item.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Show selected option for this beat */}
+                {beat.selectedOption && (
+                  <div className="beat-choice">
+                    <p className="choice-text">
+                      ➤ You chose: <TextFormatter text={beat.selectedOption} />
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Show items found in this beat */}
-            {beat.itemsFound.length > 0 && (
-              <div className="beat-items-found">
-                <p className="items-found-text">🎒 Items found:</p>
-                <div className="found-items-list">
-                  {beat.itemsFound.map((item) => (
-                    <span key={item.id} className="found-item">
-                      {item.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Show selected option for this beat */}
-            {beat.selectedOption && (
-              <div className="beat-choice">
-                <p className="choice-text">
-                  ➤ You chose: {beat.selectedOption}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         {/* Current streaming content */}
         {isStreaming && (
-          <div className="story-text">
-            <div className="story-content">
-              <TextFormatter isStreaming={isStreaming} text={streamingText} />
+          <div className={`beat-content visible`}>
+            <div className="story-text">
+              <div className="story-content">
+                <TextFormatter isStreaming={isStreaming} text={streamingText} />
+              </div>
             </div>
           </div>
         )}
@@ -553,58 +615,70 @@ Continue the story based on how using this item affects the situation. Show the 
           </div>
         )}
 
-        {/* Action Options */}
-        {gameState.currentOptions.length > 0 &&
-          !isLoading &&
-          !isStreaming &&
+        {/* Action Options - Always reserve space to prevent layout shifts */}
+        {(gameState.currentOptions.length > 0 ||
+          (isStreaming && gameState.storyBeats.length > 0)) &&
           !gameState.gameEnded && (
             <div className="options-container">
-              <h3 className="options-title">What do you do?</h3>
-              <div className="options-grid">
-                {gameState.currentOptions.map((option, index) => (
-                  <button
-                    key={index}
-                    className="button button-option"
-                    onClick={() => handleChoiceSelection(option)}
-                    disabled={isLoading || isStreaming}
-                  >
-                    <TextFormatter text={option} />
-                  </button>
-                ))}
-                <div className="custom-action-input-group">
-                  <input
-                    type="text"
-                    className="custom-action-input"
-                    placeholder="Describe what you want to do..."
-                    value={customAction}
-                    onChange={(e) => setCustomAction(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && !isLoading && !isStreaming) {
-                        handleCustomAction();
-                      }
-                    }}
-                    disabled={isLoading || isStreaming}
-                  />
-                  <button
-                    className="button button-custom-action"
-                    onClick={handleCustomAction}
-                    disabled={isLoading || isStreaming || !customAction.trim()}
-                  >
-                    Try It
-                  </button>
+              {isStreaming ? (
+                <div className="options-placeholder">
+                  <p className="options-placeholder-text">
+                    Preparing your choices...
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <h3 className="options-title">What do you do?</h3>
+                  <div className="options-grid">
+                    {gameState.currentOptions.map((option, index) => (
+                      <button
+                        key={index}
+                        className="button button-option"
+                        onClick={() => handleChoiceSelection(option)}
+                        disabled={isLoading || isStreaming}
+                      >
+                        <TextFormatter text={option} />
+                      </button>
+                    ))}
+                    <div className="custom-action-input-group">
+                      <input
+                        type="text"
+                        className="custom-action-input"
+                        placeholder="Describe what you want to do..."
+                        value={customAction}
+                        onChange={(e) => setCustomAction(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter" && !isLoading && !isStreaming) {
+                            handleCustomAction();
+                          }
+                        }}
+                        disabled={isLoading || isStreaming}
+                      />
+                      <button
+                        className="button button-custom-action"
+                        onClick={handleCustomAction}
+                        disabled={
+                          isLoading || isStreaming || !customAction.trim()
+                        }
+                      >
+                        Try It
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
-        {/* Compact Inventory Button */}
-        {gameState.inventory.length > 0 && (
+
+        {/* Compact Inventory Button - Always show if has items or streaming to prevent shifts */}
+        {(gameState.inventory.length > 0 || isStreaming) && (
           <div className="inventory-summary">
             <button
               className="button button-inventory"
               onClick={() => setShowInventory(true)}
-              disabled={isLoading || isStreaming}
+              disabled={isLoading && !isStreaming}
             >
-              Inventory ({gameState.inventory.length})
+              🎒 Inventory ({gameState.inventory.length})
             </button>
           </div>
         )}
