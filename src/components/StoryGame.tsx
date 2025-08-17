@@ -520,7 +520,9 @@ Continue the story based on how using this item affects the situation. Show the 
               {/* Beat Content - Collapsible */}
               <div
                 className={`beat-content ${
-                  isExpanded || isLastBeat ? "visible" : "hidden"
+                  isExpanded || (isLastBeat && !streamingText)
+                    ? "visible"
+                    : "hidden"
                 }`}
               >
                 <div className="story-text">
