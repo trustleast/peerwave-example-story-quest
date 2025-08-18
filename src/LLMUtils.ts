@@ -33,89 +33,27 @@ export interface GameState {
   endingMessage: string;
 }
 
-export async function generateSettings(): Promise<string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Redirect: window.location.pathname + window.location.search,
-  };
-
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = token;
-  }
-
-  const response = await fetch("https://api.peerwave.ai/api/chat", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: "cheapest",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a creative story generator. Generate up to 4 unique and engaging story concepts for an interactive text adventure game. Each concept should be creative and different from typical fantasy tropes. Respond with a JSON array of objects.",
-        },
-        {
-          role: "user",
-          content: `Generate up to 4 unique story concepts for an interactive text adventure. Return your response as a JSON array with this exact structure:
-
-[
-  {
-    "title": "Creative Title",
-    "description": "Engaging 1-2 sentence description",
-    "genre": "Genre type",
-    "setting": "Specific setting/location", 
-    "character": "Type of character the player embodies"
-  },
-  {
-    "title": "Creative Title",
-    "description": "Engaging 1-2 sentence description",
-    "genre": "Genre type",
-    "setting": "Specific setting/location",
-    "character": "Type of character the player embodies"
-  },
-  {
-    "title": "Creative Title", 
-    "description": "Engaging 1-2 sentence description",
-    "genre": "Genre type",
-    "setting": "Specific setting/location",
-    "character": "Type of character the player embodies"
-  },
-  {
-    "title": "Creative Title",
-    "description": "Engaging 1-2 sentence description", 
-    "genre": "Genre type",
-    "setting": "Specific setting/location",
-    "character": "Type of character the player embodies"
-  }
-]
-
-Make each concept unique, creative, and immediately engaging. Avoid clichéd scenarios. Return ONLY the JSON array, no additional text.`,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    if (response.status === 402 || response.status === 401) {
-      const location = response.headers.get("Location");
-      if (location) {
-        localStorage.setItem("pending_action", "generate_options");
-        window.location.href = location;
-        throw new Error("Redirecting to Peerwave auth");
-      }
-    }
-    throw new Error(`Failed to generate story options: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.message.content;
+export interface Message {
+  role: "system" | "user" | "assistant";
+  content: string;
+  tool_calls?: any[];
 }
 
-export async function fetchStoryContent(
-  prompt: string,
+export interface Request {
+  model?: string;
+  messages: Message[];
+  tools?: {
+    type: "function";
+    function: any;
+  }[];
+  tool_choice?: "auto";
+}
+
+export async function fetchAndStream(
+  label: string,
+  req: Request,
   onChunk?: (chunk: string) => void
-): Promise<string> {
+): Promise<Message> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Redirect: window.location.pathname + window.location.search,
@@ -132,37 +70,16 @@ export async function fetchStoryContent(
     endpoint = "https://api.peerwave.ai/api/chat/stream";
   }
 
-  const messages = [
-    {
-      role: "system",
-      content: `You are a creative storyteller for an interactive text adventure game. 
-  
-  IMPORTANT: Your job is to write ONLY the story narrative. Do NOT include any action options or choices in your response.
-  
-  ITEMS: When the player finds, receives, or picks up items in your story, simply describe them naturally in the narrative. The inventory system will automatically detect and add appropriate items.
-  
-  ENDINGS: You can end the adventure when it reaches a natural conclusion using:
-  **ENDING: POSITIVE** or **ENDING: NEGATIVE** followed by a final message
-  
-  RESPONSES: Write engaging, immersive narrative that describes what happens as a result of the player's actions. Focus on vivid descriptions, character development, and story progression. End your response naturally without including any numbered options or choices - those will be generated separately.
-  
-  Focus on creating compelling narrative moments where the player might discover useful items and experience meaningful consequences for their actions.`,
-    },
-    {
-      role: "user",
-      content: prompt,
-    },
-  ];
-
-  console.log("Generating new story options", messages);
+  const finalRequest = {
+    model: "cheapest",
+    ...req,
+  };
+  console.log(`Generating (${label}): `, finalRequest);
 
   const response = await fetch(endpoint, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      model: "cheapest",
-      messages: messages,
-    }),
+    body: JSON.stringify(finalRequest),
   });
 
   if (!response.ok) {
@@ -171,7 +88,7 @@ export async function fetchStoryContent(
       const location = response.headers.get("Location");
       if (location) {
         // Store the pending action before redirecting to auth
-        localStorage.setItem("pending_action", "start_game");
+        localStorage.setItem("pending_action", label);
         // Redirect to Peerwave auth
         window.location.href = location;
         throw new Error("Redirecting to Peerwave auth");
@@ -220,28 +137,107 @@ export async function fetchStoryContent(
       reader.releaseLock();
     }
 
-    return fullContent;
+    console.log(`Raw LLM Response (${label}): `, fullContent);
+    return {
+      role: "assistant",
+      content: fullContent,
+    };
   } else {
     // Non-streaming response
     const data = await response.json();
-    return data.message.content;
+    console.log(`Raw LLM Response (${label}): `, data.message.content);
+    return data.message;
   }
+}
+
+export async function generateSettings(): Promise<string> {
+  const resp = await fetchAndStream("generateSettings", {
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a creative story generator. Generate up to 4 unique and engaging story concepts for an interactive text adventure game. Each concept should be creative and different from typical fantasy tropes. Respond with a JSON array of objects.",
+      },
+      {
+        role: "user",
+        content: `Generate up to 4 unique story concepts for an interactive text adventure. Return your response as a JSON array with this exact structure:
+
+[
+  {
+    "title": "Creative Title",
+    "description": "Engaging 1-2 sentence description",
+    "genre": "Genre type",
+    "setting": "Specific setting/location", 
+    "character": "Type of character the player embodies"
+  },
+  {
+    "title": "Creative Title",
+    "description": "Engaging 1-2 sentence description",
+    "genre": "Genre type",
+    "setting": "Specific setting/location",
+    "character": "Type of character the player embodies"
+  },
+  {
+    "title": "Creative Title", 
+    "description": "Engaging 1-2 sentence description",
+    "genre": "Genre type",
+    "setting": "Specific setting/location",
+    "character": "Type of character the player embodies"
+  },
+  {
+    "title": "Creative Title",
+    "description": "Engaging 1-2 sentence description", 
+    "genre": "Genre type",
+    "setting": "Specific setting/location",
+    "character": "Type of character the player embodies"
+  }
+]
+
+Make each concept unique, creative, and immediately engaging. Avoid clichéd scenarios. Return ONLY the JSON array, no additional text.`,
+      },
+    ],
+  });
+  return resp.content;
+}
+
+export async function fetchStoryContent(
+  prompt: string,
+  onChunk?: (chunk: string) => void
+): Promise<string> {
+  const resp = await fetchAndStream(
+    "fetchStoryContent",
+    {
+      messages: [
+        {
+          role: "system",
+          content: `You are a creative storyteller for an interactive text adventure game. 
+  
+  IMPORTANT: Your job is to write ONLY the story narrative. Do NOT include any action options or choices in your response.
+  
+  ITEMS: When the player finds, receives, or picks up items in your story, simply describe them naturally in the narrative. The inventory system will automatically detect and add appropriate items.
+  
+  ENDINGS: You can end the adventure when it reaches a natural conclusion using:
+  **ENDING: POSITIVE** or **ENDING: NEGATIVE** followed by a final message
+  
+  RESPONSES: Write engaging, immersive narrative that describes what happens as a result of the player's actions. Focus on vivid descriptions, character development, and story progression. End your response naturally without including any numbered options or choices - those will be generated separately.
+  
+  Focus on creating compelling narrative moments where the player might discover useful items and experience meaningful consequences for their actions.`,
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    },
+    onChunk
+  );
+  return resp.content;
 }
 
 export async function generateStoryOptions(
   storyText: string,
   gameState: GameState
 ): Promise<string[]> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Redirect: window.location.pathname + window.location.search,
-  };
-
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = token;
-  }
-
   const inventoryContext =
     gameState.inventory.length > 0
       ? `\n\nCurrent inventory: ${gameState.inventory
@@ -249,15 +245,11 @@ export async function generateStoryOptions(
           .join(", ")}`
       : "";
 
-  const response = await fetch("https://api.peerwave.ai/api/chat", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: "cheapest",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert game designer creating action options for an interactive text adventure.
+  const resp = await fetchAndStream("generateStoryOptions", {
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert game designer creating action options for an interactive text adventure.
   
   IMPORTANT: Your job is to generate up to 3 numbered action options based on the current story situation.
   
@@ -272,30 +264,22 @@ export async function generateStoryOptions(
   1. [First action option]
   2. [Second action option]  
   3. [Third action option]`,
-        },
-        {
-          role: "user",
-          content: `Based on this story situation, generate up to 3 action options for the player:
+      },
+      {
+        role: "user",
+        content: `Based on this story situation, generate up to 3 action options for the player:
   
   ${inventoryContext}
   
   ${storyText}
   
   What are 3 interesting things the player could do next?`,
-        },
-      ],
-    }),
+      },
+    ],
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to generate options: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const optionsText = data.message.content;
-
   // Parse the options from the response
-  const lines = optionsText.split("\n").filter((line) => line.trim());
+  const lines = resp.content.split("\n").filter((line) => line.trim());
   const options = lines
     .filter((line) => line.match(/^\d+\.|^[•-]/))
     .map((line) => line.replace(/^\d+\.\s*|^[•-]\s*/, "").trim())
@@ -323,16 +307,6 @@ export async function checkForItemsToAdd(
   storyText: string,
   currentInventory: Item[]
 ): Promise<Item[]> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Redirect: window.location.pathname + window.location.search,
-  };
-
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = token;
-  }
-
   const addItemTool: AddItemTool = {
     name: "add_item",
     description:
@@ -367,15 +341,11 @@ export async function checkForItemsToAdd(
       : "Inventory is empty";
 
   try {
-    const response = await fetch("https://api.peerwave.ai/api/chat", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: "cheapest",
-        messages: [
-          {
-            role: "system",
-            content: `You are an inventory manager for a text adventure game. Your job is to determine if the player should receive any new items based on the story text.
+    const resp = await fetchAndStream("checkForItemsToAdd", {
+      messages: [
+        {
+          role: "system",
+          content: `You are an inventory manager for a text adventure game. Your job is to determine if the player should receive any new items based on the story text.
   
   RULES:
   - Only call the add_item tool if the story clearly describes the player finding, receiving, picking up, or otherwise acquiring an item
@@ -387,37 +357,30 @@ export async function checkForItemsToAdd(
   ${currentInventoryText}
   
   If no items should be added, respond with just "No items to add" and do not call any tools.`,
-          },
-          {
-            role: "user",
-            content: `Analyze this story text and determine if the player should receive any new items:
+        },
+        {
+          role: "user",
+          content: `Analyze this story text and determine if the player should receive any new items:
   
   "${storyText}"
   
   Should any items be added to the player's inventory based on this story segment?`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: addItemTool,
-          },
-        ],
-        tool_choice: "auto",
-      }),
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: addItemTool,
+        },
+      ],
+      tool_choice: "auto",
     });
 
-    if (!response.ok) {
-      console.error("Item check failed:", response.status);
-      return [];
-    }
-
-    const data = await response.json();
     const newItems: Item[] = [];
 
     // Check if the model made any tool calls
-    if (data.message.tool_calls && data.message.tool_calls.length > 0) {
-      for (const toolCall of data.message.tool_calls) {
+    if (resp.tool_calls && resp.tool_calls.length > 0) {
+      for (const toolCall of resp.tool_calls) {
         if (toolCall.function.name === "add_item") {
           try {
             const args = toolCall.function.arguments;
@@ -462,15 +425,11 @@ export async function checkForChapterEnd(
   }
 
   try {
-    const response = await fetch("https://api.peerwave.ai/api/chat", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: "cheapest",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert story analyst. Your job is to determine if a story segment represents a good place to end a chapter.
+    const resp = await fetchAndStream("checkForChapterEnd", {
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert story analyst. Your job is to determine if a story segment represents a good place to end a chapter.
   
   A good chapter ending typically:
   - Resolves a major conflict or challenge
@@ -481,10 +440,10 @@ export async function checkForChapterEnd(
   - Ends with a major revelation or plot development
   
   Answer with ONLY "YES" or "NO" - nothing else.`,
-          },
-          {
-            role: "user",
-            content: `Based on this recent story progression, does the latest story segment represent a good chapter ending?
+        },
+        {
+          role: "user",
+          content: `Based on this recent story progression, does the latest story segment represent a good chapter ending?
   
   Recent story context:
   ${recentHistory.join("\n\n")}
@@ -493,17 +452,11 @@ export async function checkForChapterEnd(
   ${storyText}
   
   Does this latest segment conclude a chapter? Answer YES or NO only.`,
-          },
-        ],
-      }),
+        },
+      ],
     });
 
-    if (!response.ok) {
-      return false;
-    }
-
-    const data = await response.json();
-    const answer = data.message.content.trim().toUpperCase();
+    const answer = resp.content.trim().toUpperCase();
     return answer === "YES";
   } catch (error) {
     console.error("Error checking for chapter end:", error);
@@ -514,16 +467,6 @@ export async function checkForChapterEnd(
 export async function generateChapterSummary(
   chapterBeats: StoryBeat[]
 ): Promise<{ title: string; summary: string }> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Redirect: window.location.pathname + window.location.search,
-  };
-
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = token;
-  }
-
   const chapterText = chapterBeats
     .map((beat) => {
       return `${beat.storyText}${
@@ -533,15 +476,11 @@ export async function generateChapterSummary(
     .join("\n\n");
 
   try {
-    const response = await fetch("https://api.peerwave.ai/api/chat", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: "cheapest",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert story editor. Your job is to create a concise chapter summary and title.
+    const resp = await fetchAndStream("generateChapterSummary", {
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert story editor. Your job is to create a concise chapter summary and title.
   
   Requirements:
   - Create a compelling chapter title (2-8 words)
@@ -552,23 +491,17 @@ export async function generateChapterSummary(
   Format your response as:
   TITLE: [Chapter Title]
   SUMMARY: [Chapter Summary]`,
-          },
-          {
-            role: "user",
-            content: `Please create a title and summary for this chapter:
+        },
+        {
+          role: "user",
+          content: `Please create a title and summary for this chapter:
   
   ${chapterText}`,
-          },
-        ],
-      }),
+        },
+      ],
     });
 
-    if (!response.ok) {
-      throw new Error("Failed to generate chapter summary");
-    }
-
-    const data = await response.json();
-    const content = data.message.content;
+    const content = resp.content;
 
     // Parse the response
     const titleMatch = content.match(/TITLE:\s*(.+)/i);
