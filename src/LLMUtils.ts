@@ -91,15 +91,13 @@ export async function fetchAndStream(
 
   if (!response.ok) {
     // Handle 402 (Payment Required) or other auth-related status codes
-    if (response.status === 402) {
-      const location = response.headers.get("Location");
-      if (location) {
-        // Store the pending action before redirecting to auth
-        localStorage.setItem("pending_action", label);
-        // Redirect to Peerwave auth
-        window.location.href = location;
-        throw new Error("Redirecting to Peerwave auth");
-      }
+    const location = response.headers.get("Location");
+    if (location) {
+      // Store the pending action before redirecting to auth
+      localStorage.setItem("pending_action", label);
+      // Redirect to Peerwave auth
+      window.location.href = location;
+      throw new Error("Redirecting to Peerwave auth");
     }
     throw new Error(
       `Failed to generate ${label}: ${response.status} ${await response.text()}`
